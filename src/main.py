@@ -608,3 +608,79 @@ def check_sms_scam(sms_content: str, db: Session = Depends(get_db)):
         "risk_level": "LOW",
         "match_type": "none"
     }
+
+
+# ============================================================================
+# ADMIN ENDPOINTS (for Railway database setup)
+# ============================================================================
+
+@app.post("/admin/setup-database", summary="Setup database tables and populate data")
+def setup_database(db: Session = Depends(get_db)):
+    """Setup database tables and populate initial data (run once after deployment)"""
+    try:
+        from .models import PhoneHeading
+        
+        # Check if tables exist and have data
+        try:
+            count = db.query(PhoneHeading).count()
+            if count > 0:
+                return {
+                    "status": "already_setup",
+                    "message": f"Database already has {count} phone headings",
+                    "phone_headings_count": count
+                }
+        except Exception:
+            # Tables might not exist yet, that's ok
+            pass
+        
+        # Ensure tables are created
+        Base.metadata.create_all(bind=engine)
+        
+        # Populate phone headings if empty
+        from .populate_headings import populate_phone_headings
+        populate_phone_headings()
+        
+        # Verify setup
+        final_count = db.query(PhoneHeading).count()
+        
+        return {
+            "status": "success",
+            "message": "Database setup completed successfully",
+            "phone_headings_count": final_count,
+            "tables_created": ["users", "phone_headings", "sms_scams", "banking_scams", "website_scams"]
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error", 
+            "message": f"Database setup failed: {str(e)}"
+        }
+
+@app.get("/admin/database-status", summary="Check database status and table counts")
+def database_status(db: Session = Depends(get_db)):
+    """Check database status and get table counts"""
+    try:
+        from .models import PhoneHeading, User, SmsScam, BankingScam, WebsiteScam
+        
+        status = {
+            "database_connection": "healthy",
+            "tables": {
+                "phone_headings": db.query(PhoneHeading).count(),
+                "users": db.query(User).count(),
+                "sms_scams": db.query(SmsScam).count(),
+                "banking_scams": db.query(BankingScam).count(),
+                "website_scams": db.query(WebsiteScam).count()
+            },
+            "total_records": 0
+        }
+        
+        status["total_records"] = sum(status["tables"].values())
+        
+        return status
+        
+    except Exception as e:
+        return {
+            "database_connection": "error",
+            "error": str(e),
+            "tables": {}
+        }
