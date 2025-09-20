@@ -12,8 +12,8 @@ from .schemas import (
 )
 from .phone_service import PhoneService
 
-# Tạo bảng (nếu chưa có) - Disabled for Railway startup
-# Base.metadata.create_all(bind=engine)
+# Tạo bảng (nếu chưa có)
+Base.metadata.create_all(bind=engine)
 
 # Auto-populate phone headings on startup (for Railway deployment)
 def populate_phone_headings_if_empty():
@@ -33,11 +33,11 @@ def populate_phone_headings_if_empty():
     except Exception as e:
         print(f"⚠️ Warning: Could not populate phone headings: {e}")
 
-# Run on startup with error handling - Disabled for Railway
-# try:
-#     populate_phone_headings_if_empty()
-# except Exception as e:
-#     print(f"⚠️ Startup warning: {e}")
+# Run on startup with error handling
+try:
+    populate_phone_headings_if_empty()
+except Exception as e:
+    print(f"⚠️ Startup warning: {e}")
 
 # Dependency to get database session
 def get_db():
