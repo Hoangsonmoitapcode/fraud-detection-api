@@ -1,0 +1,588 @@
+from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from .database import Base, engine, SessionLocal
+from .models import User, SmsScam, BankingScam, WebsiteScam
+from .schemas import (
+    UserCreate, UserResponse, ConfirmRiskyRequest,
+    SmsScamCreate, SmsScamResponse,
+    BankingScamCreate, BankingScamResponse,
+    WebsiteScamCreate, WebsiteScamResponse,
+    BatchPhoneAnalyze
+)
+from .phone_service import PhoneService
+
+# Tạo bảng (nếu chưa có)
+Base.metadata.create_all(bind=engine)
+
+# Dependency to get database session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+app = FastAPI(
+    title="Fraud Detection API",
+    description="Comprehensive fraud detection API for phone numbers, SMS, banking accounts, and websites",
+    version="3.1.1"
+)
+
+# Add CORS middleware for web clients
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify exact domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Root endpoint
+@app.get("/", summary="API Status")
+def read_root():
+    """Get API status and information"""
+    import datetime
+    import time
+    
+    try:
+        import psutil
+        cpu_usage = f"{psutil.cpu_percent()}%"
+        memory_usage = f"{psutil.virtual_memory().percent}%"
+        uptime_seconds = time.time() - psutil.boot_time()
+    except ImportError:
+        cpu_usage = "N/A"
+        memory_usage = "N/A" 
+        uptime_seconds = 0
+    
+    return {
+        "message": "🛡️ Fraud Detection API",
+        "version": "3.0.0",
+        "status": "active",
+        "timestamp": datetime.datetime.now().isoformat(),
+        "uptime_seconds": uptime_seconds,
+        "system_info": {
+            "cpu_usage": cpu_usage,
+            "memory_usage": memory_usage
+        },
+        "endpoints": {
+            "docs": "/docs",
+            "redoc": "/redoc",
+            "health": "/health",
+            "phone_analysis": "/analyze/",
+            "batch_analysis": "/analyze-batch/",
+            "sms_scam": "/sms-scam/",
+            "banking_scam": "/banking-scam/",
+            "website_scam": "/website-scam/"
+        },
+        "features": {
+            "phone_fraud_detection": "✅ Active",
+            "sms_spam_detection": "✅ Active", 
+            "banking_scam_check": "✅ Active",
+            "website_scam_check": "✅ Active"
+        }
+    }
+
+# Essential API Endpoints
+
+@app.post("/users/", summary="Create users with auto-detection (single or batch)")
+def create_users(user_request: UserCreate, db: Session = Depends(get_db)):
+    """Create one or more users with automatic phone number analysis and fraud detection"""
+    
+    results = []
+    summary = {
+        "total_submitted": len(user_request.phone_numbers),
+        "created_count": 0,
+        "duplicate_count": 0,
+        "error_count": 0,
+        "processing_time": 0
+    }
+    
+    import time
+    start_time = time.time()
+    
+    for phone_number in user_request.phone_numbers:
+        try:
+            # Check if user already exists
+            existing_user = db.query(User).filter(User.phone_number == phone_number).first()
+            
+            if existing_user:
+                summary["duplicate_count"] += 1
+                results.append({
+                    "phone_number": phone_number,
+                    "status": "duplicate",
+                    "message": "User already exists",
+                    "user_id": existing_user.id,
+                    "analysis": {
+                        "phone_head": existing_user.phone_head,
+                        "phone_region": existing_user.phone_region,
+                        "label": existing_user.label
+                    }
+                })
+                continue
+            
+            # Analyze phone number automatically
+            analysis = PhoneService.analyze_phone_number(phone_number, db)
+            
+            # Create user with auto-detected information
+            db_user = User(
+                phone_number=phone_number,
+                phone_head=analysis["phone_head"],
+                phone_region=analysis["phone_region"],
+                label=analysis["label"],
+                heading_id=analysis["heading_id"]
+            )
+            
+            db.add(db_user)
+            db.commit()
+            db.refresh(db_user)
+            
+            summary["created_count"] += 1
+            results.append({
+                "phone_number": phone_number,
+                "status": "created",
+                "user_id": db_user.id,
+                "analysis": analysis,
+                "fraud_risk": "HIGH" if analysis["label"] == "unsafe" else "LOW"
+            })
+            
+        except Exception as e:
+            db.rollback()
+            summary["error_count"] += 1
+            results.append({
+                "phone_number": phone_number,
+                "status": "error",
+                "message": str(e)
+            })
+    
+    summary["processing_time"] = round(time.time() - start_time, 2)
+    
+    # If only 1 phone number and it was created successfully, return UserResponse format for backward compatibility
+    if len(user_request.phone_numbers) == 1 and summary["created_count"] == 1:
+        created_result = next(r for r in results if r["status"] == "created")
+        user = db.query(User).filter(User.id == created_result["user_id"]).first()
+        return user
+    
+    # Otherwise return batch format
+    return {
+        "summary": summary,
+        "results": results
+    }
+
+@app.post("/analyze/", summary="Analyze phone numbers without saving (single or batch)")
+def analyze_phone_numbers(analyze_request: BatchPhoneAnalyze, db: Session = Depends(get_db)):
+    """Analyze one or more phone numbers for fraud detection without saving to database"""
+    
+    results = []
+    summary = {
+        "total_analyzed": len(analyze_request.phone_numbers),
+        "high_risk_count": 0,
+        "low_risk_count": 0,
+        "error_count": 0,
+        "processing_time": 0
+    }
+    
+    import time
+    start_time = time.time()
+    
+    for phone_number in analyze_request.phone_numbers:
+        try:
+            analysis = PhoneService.analyze_phone_number(phone_number, db)
+            fraud_risk = "HIGH" if analysis["label"] == "unsafe" else "LOW"
+            
+            # Update summary counters
+            if fraud_risk == "HIGH":
+                summary["high_risk_count"] += 1
+            else:
+                summary["low_risk_count"] += 1
+            
+            result = {
+                "phone_number": phone_number,
+                "analysis": analysis,
+                "fraud_risk": fraud_risk,
+                "status": "success"
+            }
+            
+        except Exception as e:
+            summary["error_count"] += 1
+            result = {
+                "phone_number": phone_number,
+                "error": str(e),
+                "fraud_risk": "UNKNOWN",
+                "status": "error"
+            }
+        
+        results.append(result)
+    
+    summary["processing_time"] = round(time.time() - start_time, 2)
+    
+    # If only 1 phone number, return simple format for backward compatibility
+    if len(analyze_request.phone_numbers) == 1 and summary["error_count"] == 0:
+        result = results[0]
+        return {
+            "phone_number": result["phone_number"],
+            "analysis": result["analysis"],
+            "fraud_risk": result["fraud_risk"]
+        }
+    
+    # Otherwise return batch format
+    return {
+        "summary": summary,
+        "results": results
+    }
+
+
+@app.post("/confirm-risky/", response_model=UserResponse, summary="Confirm risky number and add to database")
+def confirm_risky_number(request: ConfirmRiskyRequest, db: Session = Depends(get_db)):
+    """Confirm a risky/scam/spam number and add it to the database"""
+    # Check if the number already exists in database
+    existing_user = db.query(User).filter(User.phone_number == request.phone_number).first()
+    if existing_user:
+        # Update existing record with confirmed status
+        existing_user.label = "unsafe"
+        db.commit()
+        db.refresh(existing_user)
+        return existing_user
+    
+    # Analyze phone number to get region and heading info
+    analysis = PhoneService.analyze_phone_number(request.phone_number, db)
+    
+    # Create new user record with confirmed unsafe status
+    db_user = User(
+        phone_number=request.phone_number,
+        phone_head=analysis["phone_head"],
+        phone_region=analysis["phone_region"],
+        label="unsafe",  # Force label to unsafe since user confirmed it's risky
+        heading_id=analysis["heading_id"]
+    )
+    
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    
+    return db_user
+
+
+@app.get("/health", summary="Health Check Endpoint")
+def health_check(db: Session = Depends(get_db)):
+    """Simple health check endpoint for monitoring systems"""
+    try:
+        # Test database connection
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        db_status = "healthy"
+    except Exception as e:
+        db_status = f"unhealthy: {str(e)}"
+    
+    import datetime
+    
+    return {
+        "status": "healthy" if db_status == "healthy" else "degraded",
+        "timestamp": datetime.datetime.now().isoformat(),
+        "checks": {
+            "database": db_status,
+            "api": "healthy"
+        }
+    }
+
+
+# ============================================================================
+# NEW SCAM DETECTION ENDPOINTS
+# ============================================================================
+
+@app.post("/banking-scam/", summary="Report banking scam accounts (single or batch)")
+def report_banking_scam(banking_request: BankingScamCreate, db: Session = Depends(get_db)):
+    """Report one or more banking accounts used for scam/fraud activities"""
+    
+    results = []
+    summary = {
+        "total_submitted": len(banking_request.banking_accounts),
+        "created_count": 0,
+        "duplicate_count": 0,
+        "error_count": 0
+    }
+    
+    for banking_item in banking_request.banking_accounts:
+        try:
+            # Check if the account already exists
+            existing_account = db.query(BankingScam).filter(
+                BankingScam.account_number == banking_item.account_number,
+                BankingScam.bank_name == banking_item.bank_name
+            ).first()
+            
+            if existing_account:
+                summary["duplicate_count"] += 1
+                results.append({
+                    "account_number": banking_item.account_number,
+                    "bank_name": banking_item.bank_name,
+                    "status": "duplicate",
+                    "id": existing_account.id,
+                    "message": "Account already reported"
+                })
+                continue
+            
+            # Create new banking scam record
+            db_banking_scam = BankingScam(
+                account_number=banking_item.account_number,
+                bank_name=banking_item.bank_name
+            )
+            
+            db.add(db_banking_scam)
+            db.commit()
+            db.refresh(db_banking_scam)
+            
+            summary["created_count"] += 1
+            results.append({
+                "account_number": banking_item.account_number,
+                "bank_name": banking_item.bank_name,
+                "status": "created",
+                "id": db_banking_scam.id
+            })
+            
+        except Exception as e:
+            db.rollback()
+            summary["error_count"] += 1
+            results.append({
+                "account_number": banking_item.account_number,
+                "bank_name": banking_item.bank_name,
+                "status": "error",
+                "message": str(e)
+            })
+    
+    return {
+        "summary": summary,
+        "results": results
+    }
+
+
+@app.post("/website-scam/", summary="Report website scams (single or batch)")
+def report_website_scam(website_request: WebsiteScamCreate, db: Session = Depends(get_db)):
+    """Report one or more websites used for scam/phishing activities"""
+    
+    results = []
+    summary = {
+        "total_submitted": len(website_request.websites),
+        "created_count": 0,
+        "updated_count": 0,
+        "duplicate_count": 0,
+        "error_count": 0
+    }
+    
+    for website_item in website_request.websites:
+        try:
+            # Check if the website already exists
+            existing_website = db.query(WebsiteScam).filter(
+                WebsiteScam.website_url == website_item.website_url
+            ).first()
+            
+            if existing_website:
+                # Update existing record with new label if different
+                if existing_website.label != website_item.label:
+                    existing_website.label = website_item.label
+                    db.commit()
+                    db.refresh(existing_website)
+                    summary["updated_count"] += 1
+                    results.append({
+                        "website_url": website_item.website_url,
+                        "label": website_item.label,
+                        "status": "updated",
+                        "id": existing_website.id,
+                        "message": "Label updated"
+                    })
+                else:
+                    summary["duplicate_count"] += 1
+                    results.append({
+                        "website_url": website_item.website_url,
+                        "label": website_item.label,
+                        "status": "duplicate",
+                        "id": existing_website.id,
+                        "message": "Website already reported with same label"
+                    })
+                continue
+            
+            # Create new website scam record
+            db_website_scam = WebsiteScam(
+                website_url=website_item.website_url,
+                label=website_item.label
+            )
+            
+            db.add(db_website_scam)
+            db.commit()
+            db.refresh(db_website_scam)
+            
+            summary["created_count"] += 1
+            results.append({
+                "website_url": website_item.website_url,
+                "label": website_item.label,
+                "status": "created",
+                "id": db_website_scam.id
+            })
+            
+        except Exception as e:
+            db.rollback()
+            summary["error_count"] += 1
+            results.append({
+                "website_url": website_item.website_url,
+                "label": website_item.label,
+                "status": "error",
+                "message": str(e)
+            })
+    
+    return {
+        "summary": summary,
+        "results": results
+    }
+
+
+@app.get("/check-banking/", summary="Check if banking account is reported as scam")
+def check_banking_scam(account_number: str, bank_name: str, db: Session = Depends(get_db)):
+    """Check if a banking account is reported as scam"""
+    scam_account = db.query(BankingScam).filter(
+        BankingScam.account_number == account_number,
+        BankingScam.bank_name == bank_name
+    ).first()
+    
+    return {
+        "account_number": account_number,
+        "bank_name": bank_name,
+        "is_scam": scam_account is not None,
+        "risk_level": "HIGH" if scam_account else "LOW"
+    }
+
+
+@app.get("/check-website/", summary="Check if website is reported as scam")
+def check_website_scam(website_url: str, db: Session = Depends(get_db)):
+    """Check if a website is reported as scam"""
+    scam_website = db.query(WebsiteScam).filter(
+        WebsiteScam.website_url == website_url
+    ).first()
+    
+    return {
+        "website_url": website_url,
+        "is_scam": scam_website is not None,
+        "label": scam_website.label if scam_website else "unknown",
+        "risk_level": "HIGH" if scam_website and scam_website.label == "scam" else "LOW"
+    }
+
+
+@app.post("/sms-scam/", summary="Report SMS scams (single or batch)")
+def report_sms_scam(sms_request: SmsScamCreate, db: Session = Depends(get_db)):
+    """Report one or more SMS messages as scam/spam"""
+    
+    results = []
+    summary = {
+        "total_submitted": len(sms_request.sms_messages),
+        "created_count": 0,
+        "updated_count": 0,
+        "duplicate_count": 0,
+        "error_count": 0
+    }
+    
+    for sms_item in sms_request.sms_messages:
+        try:
+            # Check if SMS content already exists (exact match)
+            existing_sms = db.query(SmsScam).filter(
+                SmsScam.sms_content == sms_item.sms_content
+            ).first()
+            
+            if existing_sms:
+                # Update label if different
+                if existing_sms.label != sms_item.label:
+                    existing_sms.label = sms_item.label
+                    db.commit()
+                    db.refresh(existing_sms)
+                    summary["updated_count"] += 1
+                    results.append({
+                        "sms_content": sms_item.sms_content[:100] + "..." if len(sms_item.sms_content) > 100 else sms_item.sms_content,
+                        "label": sms_item.label,
+                        "status": "updated",
+                        "id": existing_sms.id,
+                        "message": "Label updated"
+                    })
+                else:
+                    summary["duplicate_count"] += 1
+                    results.append({
+                        "sms_content": sms_item.sms_content[:100] + "..." if len(sms_item.sms_content) > 100 else sms_item.sms_content,
+                        "label": sms_item.label,
+                        "status": "duplicate",
+                        "id": existing_sms.id,
+                        "message": "SMS already reported with same label"
+                    })
+                continue
+            
+            # Create new SMS scam record
+            db_sms_scam = SmsScam(
+                sms_content=sms_item.sms_content,
+                label=sms_item.label
+            )
+            
+            db.add(db_sms_scam)
+            db.commit()
+            db.refresh(db_sms_scam)
+            
+            summary["created_count"] += 1
+            results.append({
+                "sms_content": sms_item.sms_content[:100] + "..." if len(sms_item.sms_content) > 100 else sms_item.sms_content,
+                "label": sms_item.label,
+                "status": "created",
+                "id": db_sms_scam.id
+            })
+            
+        except Exception as e:
+            db.rollback()
+            summary["error_count"] += 1
+            results.append({
+                "sms_content": sms_item.sms_content[:100] + "..." if len(sms_item.sms_content) > 100 else sms_item.sms_content,
+                "label": sms_item.label,
+                "status": "error",
+                "message": str(e)
+            })
+    
+    return {
+        "summary": summary,
+        "results": results
+    }
+
+
+@app.get("/check-sms/", summary="Check if SMS content is spam")
+def check_sms_scam(sms_content: str, db: Session = Depends(get_db)):
+    """Check if SMS content is reported as spam (supports fuzzy matching)"""
+    # First try exact match
+    exact_match = db.query(SmsScam).filter(
+        SmsScam.sms_content == sms_content
+    ).first()
+    
+    if exact_match:
+        return {
+            "sms_content": sms_content,
+            "is_spam": True,
+            "label": exact_match.label,
+            "risk_level": "HIGH" if exact_match.label == "spam" else "LOW",
+            "match_type": "exact"
+        }
+    
+    # Try fuzzy matching (contains keywords)
+    fuzzy_matches = db.query(SmsScam).filter(
+        SmsScam.sms_content.ilike(f"%{sms_content[:50]}%")  # Match first 50 chars
+    ).all()
+    
+    if fuzzy_matches:
+        spam_matches = [match for match in fuzzy_matches if match.label == "spam"]
+        if spam_matches:
+            return {
+                "sms_content": sms_content,
+                "is_spam": True,
+                "label": "spam",
+                "risk_level": "MEDIUM",  # Lower confidence for fuzzy match
+                "match_type": "fuzzy",
+                "similar_count": len(spam_matches)
+            }
+    
+    # No matches found
+    return {
+        "sms_content": sms_content,
+        "is_spam": False,
+        "label": "unknown",
+        "risk_level": "LOW",
+        "match_type": "none"
+    }

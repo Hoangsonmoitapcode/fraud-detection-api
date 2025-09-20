@@ -1,0 +1,44 @@
+{
+    "websites": [
+        {
+            "website_url": "https://fake-vietcombank-login.com",
+            "label": "scam"
+        },
+        {
+            "website_url": "https://phishing-paypal-security.org",
+            "label": "scam"
+        },
+        {
+            "website_url": "https://lottery-winner-claim-now.net",
+            "label": "scam"
+        },
+        {
+            "website_url": "https://urgent-account-verification.tk",
+            "label": "scam"
+        },
+        {
+            "website_url": "https://amazon-prize-winner.ml",
+            "label": "scam"
+        },
+        {
+            "website_url": "https://facebook-security-alert.ga",
+            "label": "scam"
+        },
+        {
+            "website_url": "https://google.com",
+            "label": "safe"
+        },
+        {
+            "website_url": "https://github.com",
+            "label": "safe"
+        },
+        {
+            "website_url": "https://stackoverflow.com",
+            "label": "safe"
+        },
+        {
+            "website_url": "https://microsoft.com",
+            "label": "safe"
+        }
+    ]
+}
