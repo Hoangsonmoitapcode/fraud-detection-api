@@ -1,6 +1,12 @@
-# 🛡️ Comprehensive Fraud Detection System
+# 🛡️ Fraud Detection API
 
-A powerful FastAPI-based fraud detection system for analyzing multiple types of fraud: **phone numbers**, **SMS content**, **banking accounts**, and **websites**. Complete with automatic region detection and real-time risk assessment.
+A comprehensive Vietnamese fraud detection system deployed on **Railway cloud platform**. Analyze phone numbers, SMS messages, banking information, and websites to identify potential scams and fraudulent activities.
+
+## 🌐 **Live API**
+- **URL**: `https://fraud-detection-api-production-d288.up.railway.app`
+- **Documentation**: `https://fraud-detection-api-production-d288.up.railway.app/docs`
+- **Health Check**: `https://fraud-detection-api-production-d288.up.railway.app/health`
+- **Admin Panel**: `https://fraud-detection-api-production-d288.up.railway.app/admin/database-status`
 
 ## ✨ Features
 
