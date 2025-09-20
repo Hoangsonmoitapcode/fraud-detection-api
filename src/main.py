@@ -15,6 +15,28 @@ from .phone_service import PhoneService
 # Tạo bảng (nếu chưa có)
 Base.metadata.create_all(bind=engine)
 
+# Auto-populate phone headings on startup (for Railway deployment)
+def populate_phone_headings_if_empty():
+    """Auto-populate phone headings if database is empty"""
+    db = SessionLocal()
+    try:
+        from .models import PhoneHeading
+        count = db.query(PhoneHeading).count()
+        if count == 0:
+            print("📱 Database empty - populating phone headings...")
+            from .populate_headings import populate_phone_headings
+            populate_phone_headings()
+            print("✅ Phone headings populated successfully!")
+        else:
+            print(f"📊 Database already has {count} phone headings")
+    except Exception as e:
+        print(f"⚠️ Warning: Could not populate phone headings: {e}")
+    finally:
+        db.close()
+
+# Run on startup
+populate_phone_headings_if_empty()
+
 # Dependency to get database session
 def get_db():
     db = SessionLocal()
