@@ -63,14 +63,11 @@ class PhoneService:
         
         # Default logic if not found in database
         # Extended Vietnam headings (safe by default)
+        # Only mobile numbers are considered safe, landlines (02x) are unsafe due to spoofing risks
         vietnam_headings = [
-            # Mobile numbers
             '096', '097', '098', '032', '033', '034', '035', '036', '037', '038', '039',
             '070', '076', '077', '078', '079', '081', '082', '083', '084', '085', '088',
-            '091', '094', '087', '092', '056', '058', '099', '089', '059', '090', '093', '095',
-            # Landline numbers (fixed-line)
-            '024', '028', '025', '026', '027', '029',  # Major cities
-            '020', '021', '022', '023'  # Other regions
+            '091', '094', '087', '092', '056', '058', '099', '089', '059', '090', '093', '095'
         ]
         
         if phone_head in vietnam_headings or phone_head == '+84':
