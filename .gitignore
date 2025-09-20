@@ -63,6 +63,13 @@ Thumbs.db
 /temp/
 /backup/
 
+# Sensitive configuration (IMPORTANT for private repo)
+src/database_production.py
+config/production.env
+*.key
+*.pem
+secrets/
+
 # Testing
 .pytest_cache/
 .coverage
@@ -71,3 +78,11 @@ htmlcov/
 
 # Documentation
 docs/_build/
+
+# Railway/Deployment specific
+.railway/
+railway-data/
+
+# Local development
+local_test.py
+debug.py
