@@ -99,7 +99,11 @@ railway-data/
 # Local development
 local_test.py
 debug.py
-=======
+
+# Learning materials (local only)
+COMPREHENSIVE_LEARNING.md
+LEARNING_*.md
+NOTES_*.md
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
