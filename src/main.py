@@ -18,8 +18,8 @@ Base.metadata.create_all(bind=engine)
 # Auto-populate phone headings on startup (for Railway deployment)
 def populate_phone_headings_if_empty():
     """Auto-populate phone headings if database is empty"""
-    db = SessionLocal()
     try:
+        db = SessionLocal()
         from .models import PhoneHeading
         count = db.query(PhoneHeading).count()
         if count == 0:
@@ -29,13 +29,15 @@ def populate_phone_headings_if_empty():
             print("✅ Phone headings populated successfully!")
         else:
             print(f"📊 Database already has {count} phone headings")
+        db.close()
     except Exception as e:
         print(f"⚠️ Warning: Could not populate phone headings: {e}")
-    finally:
-        db.close()
 
-# Run on startup
-populate_phone_headings_if_empty()
+# Run on startup with error handling
+try:
+    populate_phone_headings_if_empty()
+except Exception as e:
+    print(f"⚠️ Startup warning: {e}")
 
 # Dependency to get database session
 def get_db():
