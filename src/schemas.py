@@ -30,11 +30,11 @@ class PhoneHeadingResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class UserCreate(BaseModel):
+class PhoneNumberCreate(BaseModel):
     phone_numbers: List[str] = Field(
         ...,
         title="Phone Numbers List",
-        description="List of phone numbers to create users for (1 or more)",
+        description="List of phone numbers to create records for (1 or more)",
         example=["0965842855", "0123456789", "+84987654321"],
         min_items=1,
         max_items=50  # Limit for database operations
@@ -65,8 +65,8 @@ class ConfirmRiskyRequest(BaseModel):
         example="scam"
     )
 
-class UserResponse(BaseModel):
-    id: int = Field(..., title="User ID", description="Unique identifier")
+class PhoneNumberResponse(BaseModel):
+    id: int = Field(..., title="Phone Number ID", description="Unique identifier")
     phone_number: str = Field(..., title="Phone Number")
     phone_head: str = Field(..., title="Phone Head", description="Auto-detected phone prefix")
     phone_region: str = Field(..., title="Phone Region", description="Auto-detected region")

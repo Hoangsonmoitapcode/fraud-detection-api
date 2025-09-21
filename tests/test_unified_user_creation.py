@@ -8,7 +8,7 @@ import json
 def test_single_user_creation(base_url: str = "http://localhost:8000"):
     """Test single user creation (backward compatibility)"""
     
-    print("👤 Testing Single User Creation")
+    print("👤 Testing Single PhoneNumber Creation")
     print("=" * 50)
     
     # Single user request
@@ -18,7 +18,7 @@ def test_single_user_creation(base_url: str = "http://localhost:8000"):
     
     try:
         response = requests.post(
-            f"{base_url}/users/",
+            f"{base_url}/phone-numbers/",
             json=single_request,
             headers={"Content-Type": "application/json"}
         )
@@ -26,10 +26,10 @@ def test_single_user_creation(base_url: str = "http://localhost:8000"):
         if response.status_code == 200:
             data = response.json()
             
-            # Check if it returns UserResponse format (backward compatibility)
+            # Check if it returns PhoneNumberResponse format (backward compatibility)
             if "id" in data and "phone_number" in data:
-                print(f"✅ SUCCESS - UserResponse format (backward compatible)")
-                print(f"   User ID: {data.get('id')}")
+                print(f"✅ SUCCESS - PhoneNumberResponse format (backward compatible)")
+                print(f"   PhoneNumber ID: {data.get('id')}")
                 print(f"   Phone: {data.get('phone_number')}")
                 print(f"   Region: {data.get('phone_region')}")
                 print(f"   Risk: {'HIGH' if data.get('label') == 'unsafe' else 'LOW'}")
@@ -48,7 +48,7 @@ def test_single_user_creation(base_url: str = "http://localhost:8000"):
 def test_multiple_user_creation(base_url: str = "http://localhost:8000"):
     """Test multiple user creation"""
     
-    print("\n👥 Testing Multiple User Creation")
+    print("\n👥 Testing Multiple PhoneNumber Creation")
     print("=" * 50)
     
     # Multiple users request
@@ -63,7 +63,7 @@ def test_multiple_user_creation(base_url: str = "http://localhost:8000"):
     
     try:
         response = requests.post(
-            f"{base_url}/users/",
+            f"{base_url}/phone-numbers/",
             json=batch_request,
             headers={"Content-Type": "application/json"}
         )
@@ -172,7 +172,7 @@ def test_mixed_scenarios(base_url: str = "http://localhost:8000"):
     
     try:
         response = requests.post(
-            f"{base_url}/users/",
+            f"{base_url}/phone-numbers/",
             json=mixed_request,
             headers={"Content-Type": "application/json"}
         )
@@ -214,14 +214,14 @@ def test_backward_compatibility(base_url: str = "http://localhost:8000"):
     print("\n🔙 Testing Backward Compatibility")
     print("=" * 50)
     
-    # Test that single user returns UserResponse format for backward compatibility
+    # Test that single user returns PhoneNumberResponse format for backward compatibility
     single_request = {
         "phone_numbers": ["0965555001"]
     }
     
     try:
         response = requests.post(
-            f"{base_url}/users/",
+            f"{base_url}/phone-numbers/",
             json=single_request,
             headers={"Content-Type": "application/json"}
         )
@@ -229,16 +229,16 @@ def test_backward_compatibility(base_url: str = "http://localhost:8000"):
         if response.status_code == 200:
             data = response.json()
             
-            # Check if it has UserResponse structure
+            # Check if it has PhoneNumberResponse structure
             required_fields = ["id", "phone_number", "phone_head", "phone_region", "label"]
             has_user_fields = all(field in data for field in required_fields)
             
             if has_user_fields:
                 print(f"✅ Backward compatibility maintained")
-                print(f"   Returns UserResponse format for single user")
+                print(f"   Returns PhoneNumberResponse format for single user")
                 print(f"   Fields: {list(data.keys())}")
             else:
-                print(f"⚠️  Returns batch format instead of UserResponse")
+                print(f"⚠️  Returns batch format instead of PhoneNumberResponse")
                 print(f"   This might break existing clients")
                 
         else:
@@ -248,7 +248,7 @@ def test_backward_compatibility(base_url: str = "http://localhost:8000"):
         print(f"❌ ERROR - {str(e)}")
 
 if __name__ == "__main__":
-    print("🚀 Starting Unified User Creation Tests...")
+    print("🚀 Starting Unified PhoneNumber Creation Tests...")
     print("Make sure your FastAPI server is running on http://localhost:8000")
     print("This will CREATE USERS in your database!")
     print("\n" + "=" * 80)

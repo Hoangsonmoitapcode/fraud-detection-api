@@ -51,8 +51,8 @@
 -- Phone headings database
 phone_headings (id, heading, region, status)
 
--- User analysis records
-users (id, phone_number, phone_head, phone_region, label, heading_id)
+-- Phone number analysis records
+phone_numbers (id, phone_number, phone_head, phone_region, label, heading_id)
 
 -- Scam detection records
 sms_scams (id, message, risk_level, detected_patterns, analysis_result)
@@ -249,7 +249,7 @@ curl -X POST "https://fraud-detection-api-production-d288.up.railway.app/sms-sca
 - **Response Time**: < 200ms average
 - **Uptime**: 99.9% (Railway platform)
 - **Database**: PostgreSQL with connection pooling
-- **Concurrent Users**: 100+ supported
+- **Concurrent Requests**: 100+ supported
 
 ### **Health Monitoring**
 ```bash

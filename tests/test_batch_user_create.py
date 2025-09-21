@@ -8,7 +8,7 @@ import json
 def test_batch_user_creation(base_url: str = "http://localhost:8000"):
     """Test batch user creation endpoint that saves to database"""
     
-    print("👥 Testing Batch User Creation (Database Save)")
+    print("👥 Testing Batch PhoneNumber Creation (Database Save)")
     print("=" * 50)
     
     # Test data - mix of new and potentially duplicate numbers
@@ -42,7 +42,7 @@ def test_batch_user_creation(base_url: str = "http://localhost:8000"):
             
             # Send request
             response = requests.post(
-                f"{base_url}/users-batch/",
+                f"{base_url}/phone-numbers/",
                 json=request_data,
                 headers={"Content-Type": "application/json"}
             )
@@ -94,7 +94,7 @@ def test_duplicate_handling(base_url: str = "http://localhost:8000"):
     print(f"   First batch (should create)...")
     try:
         response1 = requests.post(
-            f"{base_url}/users-batch/",
+            f"{base_url}/phone-numbers/",
             json=first_batch,
             headers={"Content-Type": "application/json"}
         )
@@ -115,7 +115,7 @@ def test_duplicate_handling(base_url: str = "http://localhost:8000"):
     print(f"   Second batch (should detect duplicates)...")
     try:
         response2 = requests.post(
-            f"{base_url}/users-batch/",
+            f"{base_url}/phone-numbers/",
             json=first_batch,  # Same data
             headers={"Content-Type": "application/json"}
         )
@@ -150,7 +150,7 @@ def verify_database_updates(base_url: str = "http://localhost:8000"):
     print(f"   Creating test users...")
     try:
         response = requests.post(
-            f"{base_url}/users-batch/",
+            f"{base_url}/phone-numbers/",
             json={"phone_numbers": test_numbers},
             headers={"Content-Type": "application/json"}
         )
@@ -182,7 +182,7 @@ def verify_database_updates(base_url: str = "http://localhost:8000"):
         print(f"   ❌ Error: {str(e)}")
 
 if __name__ == "__main__":
-    print("🚀 Starting Batch User Creation Tests...")
+    print("🚀 Starting Batch PhoneNumber Creation Tests...")
     print("Make sure your FastAPI server is running on http://localhost:8000")
     print("This will CREATE USERS in your database!")
     print("\n" + "=" * 60)
