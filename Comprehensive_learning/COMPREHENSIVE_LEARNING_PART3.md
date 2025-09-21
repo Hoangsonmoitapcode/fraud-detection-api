@@ -367,15 +367,15 @@ heading = Column(String, nullable=False, unique=True, index=True)
 #### **Query Optimization**
 ```python
 # Efficient query with joins
-def get_user_with_heading(user_id: int, db: Session):
-    return db.query(User).options(
-        joinedload(User.heading_info)
-    ).filter(User.id == user_id).first()
+def get_phone_number_with_heading(phone_number_id: int, db: Session):
+    return db.query(PhoneNumber).options(
+        joinedload(PhoneNumber.heading_info)
+    ).filter(PhoneNumber.id == phone_number_id).first()
 
 # Bulk operations
-def create_multiple_users(users_data: List[dict], db: Session):
-    users = [User(**data) for data in users_data]
-    db.add_all(users)
+def create_multiple_phone_numbers(phone_numbers_data: List[dict], db: Session):
+    phone_numbers = [PhoneNumber(**data) for data in phone_numbers_data]
+    db.add_all(phone_numbers)
     db.commit()
 ```
 

@@ -2,9 +2,9 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from .database import Base, engine, SessionLocal
-from .models import User, SmsScam, BankingScam, WebsiteScam
+from .models import PhoneNumber, SmsScam, BankingScam, WebsiteScam
 from .schemas import (
-    UserCreate, UserResponse, ConfirmRiskyRequest,
+    PhoneNumberCreate, PhoneNumberResponse, ConfirmRiskyRequest,
     SmsScamCreate, SmsScamResponse,
     BankingScamCreate, BankingScamResponse,
     WebsiteScamCreate, WebsiteScamResponse,
@@ -95,6 +95,7 @@ def read_root():
             "health": "/health",
             "phone_analysis": "/analyze/",
             "batch_analysis": "/analyze-batch/",
+            "phone_numbers": "/phone-numbers/",
             "sms_scam": "/sms-scam/",
             "banking_scam": "/banking-scam/",
             "website_scam": "/website-scam/"
@@ -109,13 +110,13 @@ def read_root():
 
 # Essential API Endpoints
 
-@app.post("/users/", summary="Create users with auto-detection (single or batch)")
-def create_users(user_request: UserCreate, db: Session = Depends(get_db)):
-    """Create one or more users with automatic phone number analysis and fraud detection"""
+@app.post("/phone-numbers/", summary="Create phone number records with auto-detection (single or batch)")
+def create_phone_numbers(phone_request: PhoneNumberCreate, db: Session = Depends(get_db)):
+    """Create one or more phone number records with automatic phone number analysis and fraud detection"""
     
     results = []
     summary = {
-        "total_submitted": len(user_request.phone_numbers),
+        "total_submitted": len(phone_request.phone_numbers),
         "created_count": 0,
         "duplicate_count": 0,
         "error_count": 0,
@@ -125,22 +126,22 @@ def create_users(user_request: UserCreate, db: Session = Depends(get_db)):
     import time
     start_time = time.time()
     
-    for phone_number in user_request.phone_numbers:
+    for phone_number in phone_request.phone_numbers:
         try:
-            # Check if user already exists
-            existing_user = db.query(User).filter(User.phone_number == phone_number).first()
+            # Check if phone number already exists
+            existing_phone = db.query(PhoneNumber).filter(PhoneNumber.phone_number == phone_number).first()
             
-            if existing_user:
+            if existing_phone:
                 summary["duplicate_count"] += 1
                 results.append({
                     "phone_number": phone_number,
                     "status": "duplicate",
-                    "message": "User already exists",
-                    "user_id": existing_user.id,
+                    "message": "Phone number already exists",
+                    "phone_number_id": existing_phone.id,
                     "analysis": {
-                        "phone_head": existing_user.phone_head,
-                        "phone_region": existing_user.phone_region,
-                        "label": existing_user.label
+                        "phone_head": existing_phone.phone_head,
+                        "phone_region": existing_phone.phone_region,
+                        "label": existing_phone.label
                     }
                 })
                 continue
@@ -148,8 +149,8 @@ def create_users(user_request: UserCreate, db: Session = Depends(get_db)):
             # Analyze phone number automatically
             analysis = PhoneService.analyze_phone_number(phone_number, db)
             
-            # Create user with auto-detected information
-            db_user = User(
+            # Create phone number record with auto-detected information
+            db_phone_number = PhoneNumber(
                 phone_number=phone_number,
                 phone_head=analysis["phone_head"],
                 phone_region=analysis["phone_region"],
@@ -157,15 +158,15 @@ def create_users(user_request: UserCreate, db: Session = Depends(get_db)):
                 heading_id=analysis["heading_id"]
             )
             
-            db.add(db_user)
+            db.add(db_phone_number)
             db.commit()
-            db.refresh(db_user)
+            db.refresh(db_phone_number)
             
             summary["created_count"] += 1
             results.append({
                 "phone_number": phone_number,
                 "status": "created",
-                "user_id": db_user.id,
+                "phone_number_id": db_phone_number.id,
                 "analysis": analysis,
                 "fraud_risk": "HIGH" if analysis["label"] == "unsafe" else "LOW"
             })
@@ -181,11 +182,11 @@ def create_users(user_request: UserCreate, db: Session = Depends(get_db)):
     
     summary["processing_time"] = round(time.time() - start_time, 2)
     
-    # If only 1 phone number and it was created successfully, return UserResponse format for backward compatibility
-    if len(user_request.phone_numbers) == 1 and summary["created_count"] == 1:
+    # If only 1 phone number and it was created successfully, return PhoneNumberResponse format for backward compatibility
+    if len(phone_request.phone_numbers) == 1 and summary["created_count"] == 1:
         created_result = next(r for r in results if r["status"] == "created")
-        user = db.query(User).filter(User.id == created_result["user_id"]).first()
-        return user
+        phone_number_record = db.query(PhoneNumber).filter(PhoneNumber.id == created_result["phone_number_id"]).first()
+        return phone_number_record
     
     # Otherwise return batch format
     return {
@@ -256,23 +257,23 @@ def analyze_phone_numbers(analyze_request: BatchPhoneAnalyze, db: Session = Depe
     }
 
 
-@app.post("/confirm-risky/", response_model=UserResponse, summary="Confirm risky number and add to database")
+@app.post("/confirm-risky/", response_model=PhoneNumberResponse, summary="Confirm risky number and add to database")
 def confirm_risky_number(request: ConfirmRiskyRequest, db: Session = Depends(get_db)):
     """Confirm a risky/scam/spam number and add it to the database"""
     # Check if the number already exists in database
-    existing_user = db.query(User).filter(User.phone_number == request.phone_number).first()
-    if existing_user:
+    existing_phone = db.query(PhoneNumber).filter(PhoneNumber.phone_number == request.phone_number).first()
+    if existing_phone:
         # Update existing record with confirmed status
-        existing_user.label = "unsafe"
+        existing_phone.label = "unsafe"
         db.commit()
-        db.refresh(existing_user)
-        return existing_user
+        db.refresh(existing_phone)
+        return existing_phone
     
     # Analyze phone number to get region and heading info
     analysis = PhoneService.analyze_phone_number(request.phone_number, db)
     
-    # Create new user record with confirmed unsafe status
-    db_user = User(
+    # Create new phone number record with confirmed unsafe status
+    db_phone_number = PhoneNumber(
         phone_number=request.phone_number,
         phone_head=analysis["phone_head"],
         phone_region=analysis["phone_region"],
@@ -280,11 +281,11 @@ def confirm_risky_number(request: ConfirmRiskyRequest, db: Session = Depends(get
         heading_id=analysis["heading_id"]
     )
     
-    db.add(db_user)
+    db.add(db_phone_number)
     db.commit()
-    db.refresh(db_user)
+    db.refresh(db_phone_number)
     
-    return db_user
+    return db_phone_number
 
 
 @app.get("/health", summary="Health Check Endpoint")
@@ -649,7 +650,7 @@ def setup_database(db: Session = Depends(get_db)):
             "status": "success",
             "message": "Database setup completed successfully",
             "phone_headings_count": final_count,
-            "tables_created": ["users", "phone_headings", "sms_scams", "banking_scams", "website_scams"]
+            "tables_created": ["phone_numbers", "phone_headings", "sms_scams", "banking_scams", "website_scams"]
         }
         
     except Exception as e:
@@ -662,13 +663,13 @@ def setup_database(db: Session = Depends(get_db)):
 def database_status(db: Session = Depends(get_db)):
     """Check database status and get table counts"""
     try:
-        from .models import PhoneHeading, User, SmsScam, BankingScam, WebsiteScam
+        from .models import PhoneHeading, PhoneNumber, SmsScam, BankingScam, WebsiteScam
         
         status = {
             "database_connection": "healthy",
             "tables": {
                 "phone_headings": db.query(PhoneHeading).count(),
-                "users": db.query(User).count(),
+                "phone_numbers": db.query(PhoneNumber).count(),
                 "sms_scams": db.query(SmsScam).count(),
                 "banking_scams": db.query(BankingScam).count(),
                 "website_scams": db.query(WebsiteScam).count()

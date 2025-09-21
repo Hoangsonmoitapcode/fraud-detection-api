@@ -10,11 +10,11 @@ class PhoneHeading(Base):
     region = Column(String, nullable=False)  # e.g., "Vietnam", "USA"
     status = Column(String, nullable=False)  # "safe" or "unsafe"
     
-    # Relationship to users
-    users = relationship("User", back_populates="heading_info")
+    # Relationship to phone numbers
+    phone_numbers = relationship("PhoneNumber", back_populates="heading_info")
 
-class User(Base):
-    __tablename__ = "users"
+class PhoneNumber(Base):
+    __tablename__ = "phone_numbers"
     id = Column(Integer, primary_key=True, index=True)
     phone_number = Column(String, nullable=False)
     phone_head = Column(String, nullable=False)
@@ -23,7 +23,7 @@ class User(Base):
     heading_id = Column(Integer, ForeignKey("phone_headings.id"), nullable=True)
     
     # Relationship to phone heading
-    heading_info = relationship("PhoneHeading", back_populates="users")
+    heading_info = relationship("PhoneHeading", back_populates="phone_numbers")
 
 
 class SmsScam(Base):

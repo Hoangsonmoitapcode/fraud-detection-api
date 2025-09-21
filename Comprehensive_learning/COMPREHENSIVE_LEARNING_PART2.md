@@ -214,15 +214,15 @@ def analyze_phone_numbers(
         try:
             analysis = PhoneService.analyze_phone_number(phone_number, db)
             
-            # Create user record
-            user = User(
+            # Create phone number record
+            phone_number_record = PhoneNumber(
                 phone_number=phone_number,
                 phone_head=analysis["phone_head"],
                 phone_region=analysis["phone_region"],
                 label=analysis["label"],
                 heading_id=analysis["heading_id"]
             )
-            db.add(user)
+            db.add(phone_number_record)
             
             # Count risk levels
             if analysis["label"] == "unsafe":
@@ -273,16 +273,16 @@ def analyze_phone_numbers(
 3. **Reduced overhead**: Fewer HTTP requests
 4. **Better UX**: Bulk operations cho users
 
-#### **User Record Creation**
+#### **Phone Number Record Creation**
 ```python
-user = User(
+phone_number_record = PhoneNumber(
     phone_number=phone_number,
     phone_head=analysis["phone_head"],
     phone_region=analysis["phone_region"],
     label=analysis["label"],
     heading_id=analysis["heading_id"]
 )
-db.add(user)
+db.add(phone_number_record)
 ```
 
 **Tại sao lưu user records**:
@@ -439,7 +439,7 @@ class BatchPhoneAnalyze(BaseModel):
 
 #### **Response Models**
 ```python
-class UserResponse(BaseModel):
+class PhoneNumberResponse(BaseModel):
     id: int
     phone_number: str
     phone_head: str

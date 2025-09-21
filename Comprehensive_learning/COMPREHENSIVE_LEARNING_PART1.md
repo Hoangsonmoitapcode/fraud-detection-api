@@ -86,11 +86,11 @@ status = Column(String, nullable=False)
 #### **Relationships**
 ```python
 # Trong PhoneHeading
-users = relationship("User", back_populates="heading_info")
+phone_numbers = relationship("PhoneNumber", back_populates="heading_info")
 
-# Trong User  
+# Trong PhoneNumber  
 heading_id = Column(Integer, ForeignKey("phone_headings.id"), nullable=True)
-heading_info = relationship("PhoneHeading", back_populates="users")
+heading_info = relationship("PhoneHeading", back_populates="phone_numbers")
 ```
 
 **Giải thích Relationship**:

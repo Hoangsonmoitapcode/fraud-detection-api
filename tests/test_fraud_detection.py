@@ -165,7 +165,7 @@ def test_user_creation(base_url: str = "http://localhost:8000") -> None:
     """Test user creation with auto-detection"""
     
     print("\n" + "=" * 60)
-    print("👤 Testing User Creation with Auto-Detection")
+    print("👤 Testing PhoneNumber Creation with Auto-Detection")
     print("=" * 60)
     
     # Test with Vietnamese number (should be safe)
@@ -180,7 +180,7 @@ def test_user_creation(base_url: str = "http://localhost:8000") -> None:
         
         if response.status_code == 200:
             user_data = response.json()
-            print(f"✅ User created successfully:")
+            print(f"✅ PhoneNumber created successfully:")
             print(f"   ID: {user_data.get('id')}")
             print(f"   Phone: {user_data.get('phone_number')}")
             print(f"   Head: {user_data.get('phone_head')}")
@@ -188,7 +188,7 @@ def test_user_creation(base_url: str = "http://localhost:8000") -> None:
             print(f"   Status: {user_data.get('label')}")
             print(f"   Heading ID: {user_data.get('heading_id')}")
         else:
-            print(f"❌ User creation failed - HTTP {response.status_code}")
+            print(f"❌ PhoneNumber creation failed - HTTP {response.status_code}")
             print(f"   Response: {response.text}")
             
     except Exception as e:
