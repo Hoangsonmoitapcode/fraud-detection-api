@@ -1,4 +1,4 @@
-# 📱 Fraud Detection API - For Users
+# 📱 Fraud Detection API - User Guide
 
 ## 🎯 **What This API Does**
 Detect fraud for Vietnamese phone numbers, SMS content, banking accounts, and websites.

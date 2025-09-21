@@ -11,7 +11,7 @@ http://localhost:8000
 ## Endpoints
 
 ### 1. Add Phone Number to Database
-**POST** `/users/`
+**POST** `/phone-numbers/`
 
 Add a phone number to the database with automatic fraud detection and region analysis.
 
@@ -111,7 +111,7 @@ Currently, there are no rate limits implemented. Consider implementing rate limi
 
 ## Data Models
 
-### User
+### PhoneNumber
 - `id`: Integer (Primary Key)
 - `phone_number`: String (Unique)
 - `phone_head`: String (Phone prefix)

@@ -99,11 +99,11 @@ curl -X POST "https://your-url/analyze/" \
 # Mở browser: https://your-url/docs
 ```
 
-## 👥 **Users CỦA BẠN SẼ SỬ DỤNG NHƯ SAO?**
+## 👥 **NGƯỜI DÙNG CỦA BẠN SẼ SỬ DỤNG NHƯ SAO?**
 
-### ✅ **Users KHÔNG cần cài gì cả!**
+### ✅ **NGƯỜI DÙNG KHÔNG cần cài gì cả!**
 
-Users chỉ cần:
+Người dùng chỉ cần:
 1. **Internet connection**
 2. **Programming language** (JavaScript, Python, PHP, Java, etc.)
 3. **Your API URL**
@@ -128,7 +128,7 @@ console.log(data);
 ```python
 import requests
 
-# Users chỉ cần requests library
+# Người dùng chỉ cần requests library
 response = requests.post('https://your-url/analyze/', 
                         json={'phone_numbers': ['0965842855']})
 result = response.json()
@@ -157,7 +157,7 @@ curl -X POST "https://your-url/analyze/" \
   -d '{"phone_numbers": ["0965842855"]}'
 ```
 
-## 📱 **Cách Chia Sẻ API với Users**
+## 📱 **Cách Chia Sẻ API với Người Dùng**
 
 ### **1. Cung cấp thông tin cơ bản:**
 ```
@@ -231,4 +231,4 @@ Sau khi hoàn thành các bước trên, bạn sẽ có:
 4. **✅ HTTPS Security** - SSL certificate tự động
 5. **✅ Monitoring** - Built-in logs và metrics
 
-**Users của bạn chỉ cần biết API URL và có thể sử dụng ngay!**
+**Người dùng của bạn chỉ cần biết API URL và có thể sử dụng ngay!**
