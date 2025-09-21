@@ -44,7 +44,7 @@ POST /analyze/?phone_number=0965842855
 
 ### User Creation with Auto-Detection
 ```http
-POST /users/
+POST /phone-numbers/
 Content-Type: application/json
 
 {
@@ -179,7 +179,7 @@ After population, your database contains:
 
 ## 🚨 Fraud Detection Workflow
 
-1. **User submits phone number** → `POST /users/`
+1. **User submits phone number** → `POST /phone-numbers/`
 2. **System extracts phone heading** → `096` from `0965842855`
 3. **System queries headings database** → Found: Vietnam, Safe
 4. **System assigns fraud risk** → LOW risk

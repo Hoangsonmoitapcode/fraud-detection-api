@@ -14,7 +14,7 @@ A comprehensive Vietnamese fraud detection system deployed on **Railway cloud pl
 - **Automatic Region Detection**: Detect phone number regions and carriers
 - **International Support**: Handle phone numbers from multiple countries
 - **Risk Assessment**: Real-time fraud risk evaluation
-- **Crowdsourced Reporting**: User-confirmed risky numbers
+- **Crowdsourced Reporting**: Community-confirmed risky numbers
 - **Batch Processing**: Analyze multiple phone numbers at once
 
 ### 💬 **SMS Scam Detection**
@@ -35,7 +35,7 @@ A comprehensive Vietnamese fraud detection system deployed on **Railway cloud pl
 - **URL Analysis**: Detect phishing and scam websites
 - **Real-time Protection**: Check websites before access
 - **Label Classification**: Categorize websites as safe/scam
-- **Phishing Prevention**: Protect users from malicious sites
+- **Phishing Prevention**: Protect people from malicious sites
 - **Batch URL Processing**: Check multiple websites at once
 
 ### 🔧 **System Monitoring & Health**
@@ -52,13 +52,13 @@ A comprehensive Vietnamese fraud detection system deployed on **Railway cloud pl
 - 📋 **Step-by-step setup?** → **[setup/SETUP_CHECKLIST.md](setup/SETUP_CHECKLIST.md)**
 - 📚 **Detailed help?** → **[docs/INSTALLATION_GUIDE.md](docs/INSTALLATION_GUIDE.md)**
 
-### For New Users (No Python/PostgreSQL)
+### For New People (No Python/PostgreSQL)
 👥 **If you're sharing this with someone who doesn't have Python or PostgreSQL installed:**
 1. See: **[START_HERE.md](START_HERE.md)** ← **Start here first!**
 2. Use: **[setup/SETUP_CHECKLIST.md](setup/SETUP_CHECKLIST.md)**
 3. Run: **`setup/FIRST_TIME_SETUP.bat`**
 
-### Prerequisites (For Experienced Users)
+### Prerequisites (For Experienced Developers)
 
 - Python 3.11+ (tested with Python 3.13.7)
 - PostgreSQL database
@@ -112,7 +112,7 @@ A comprehensive Vietnamese fraud detection system deployed on **Railway cloud pl
 | GET | `/` | API status with system metrics and available endpoints |
 | GET | `/health` | Health check endpoint for monitoring systems |
 | **Phone Number Endpoints** | | |
-| POST | `/users/` | Add phone number(s) to database with fraud analysis (batch support) |
+| POST | `/phone-numbers/` | Add phone number(s) to database with fraud analysis (batch support) |
 | POST | `/analyze/` | Check if number(s) are risky without saving (batch support) |
 | POST | `/confirm-risky/` | Confirm risky number and add to database |
 | **SMS Scam Endpoints** | | |
@@ -155,7 +155,7 @@ curl -X POST "http://localhost:8000/analyze/" \
 
 #### 2. Add Phone Number to Database
 ```bash
-curl -X POST "http://localhost:8000/users/" \
+curl -X POST "http://localhost:8000/phone-numbers/" \
   -H "Content-Type: application/json" \
   -d '{"phone_numbers": ["0965842855"]}'
 ```
@@ -324,7 +324,7 @@ FraudDetection/
 
 ## 🗄️ Database Schema
 
-- **users**: Store phone numbers with analysis results
+- **phone_numbers**: Store phone numbers with analysis results
 - **phone_headings**: Phone number prefixes and regions
 - **sms_scams**: Store SMS content and spam classification
 - **banking_scams**: Store reported scam banking accounts
