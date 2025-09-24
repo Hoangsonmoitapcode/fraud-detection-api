@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build Production-Ready Docker Image
 
 on:
   push:
@@ -6,17 +6,14 @@ on:
     paths:
       - 'src/**'
       - 'requirements*.txt'
-      - 'Dockerfile'
-      - 'cache_models.py'
+      - 'Dockerfile.production'
       - '.github/workflows/docker-build.yml'
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'src/**'
-      - 'requirements*.txt'
-      - 'Dockerfile'
-      - 'cache_models.py'
   workflow_dispatch:  # Manual trigger
+    inputs:
+      force_rebuild:
+        description: 'Force complete rebuild'
+        required: false
+        default: 'false'
 
 env:
   REGISTRY: ghcr.io
@@ -58,7 +55,8 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
-        platforms: linux/amd64,linux/arm64
+        file: ./Dockerfile.production
+        platforms: linux/amd64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
@@ -66,3 +64,4 @@ jobs:
         cache-to: type=gha,mode=max
         build-args: |
           BUILDKIT_INLINE_CACHE=1
+          FORCE_REBUILD=${{ github.event.inputs.force_rebuild || 'false' }}

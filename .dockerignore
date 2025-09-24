@@ -35,10 +35,15 @@ Comprehensive_learning/
 tests/
 notebooks/
 
-# Large model files (if any)
+# Large model files (exclude from Docker build)
 models/
 *.pkl
 *.joblib
+phobert_sms_classifier.pkl
+
+# Large environments
+phobert_env/
+.venv/
 
 # Logs
 *.log
