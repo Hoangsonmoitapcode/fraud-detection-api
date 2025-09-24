@@ -35,15 +35,30 @@ Comprehensive_learning/
 tests/
 notebooks/
 
-# Large model files (exclude from Docker build)
+# Large model files (CRITICAL: exclude from Docker build)
 models/
 *.pkl
 *.joblib
 phobert_sms_classifier.pkl
 
-# Large environments
+# Large environments and directories
 phobert_env/
 .venv/
+.idea/
+Comprehensive_learning/
+documentation/
+tests/
+setup/
+database/
+scripts/
+
+# Development files that shouldn't be in production
+*.log
+logs/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
 
 # Logs
 *.log
