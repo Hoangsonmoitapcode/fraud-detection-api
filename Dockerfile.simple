@@ -19,7 +19,10 @@ RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code (excluding large files via .dockerignore)
-COPY . .
+COPY src/ ./src/
+COPY *.py ./
+COPY *.json ./
+COPY Procfile ./
 
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash app
