@@ -1,8 +1,8 @@
 {
     "$schema": "https://railway.app/railway.schema.json",
     "build": {
-        "builder": "DOCKERFILE",
-        "dockerfilePath": "Dockerfile"
+        "builder": "DOCKER",
+        "dockerImage": "ghcr.io/hoangsonmoitapcode/fraud-detection-api:latest"
     },
     "deploy": {
         "startCommand": "uvicorn src.main:app --host 0.0.0.0 --port $PORT --workers 1",
