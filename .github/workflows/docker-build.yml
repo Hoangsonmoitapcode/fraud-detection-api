@@ -6,7 +6,7 @@ on:
     paths:
       - 'src/**'
       - 'requirements*.txt'
-      - 'Dockerfile.production'
+      - 'Dockerfile.github'
       - '.github/workflows/docker-build.yml'
   workflow_dispatch:  # Manual trigger
     inputs:
@@ -55,7 +55,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
-        file: ./Dockerfile.production
+        file: ./Dockerfile.github
         platforms: linux/amd64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
@@ -64,4 +64,3 @@ jobs:
         cache-to: type=gha,mode=max
         build-args: |
           BUILDKIT_INLINE_CACHE=1
-          FORCE_REBUILD=${{ github.event.inputs.force_rebuild || 'false' }}
