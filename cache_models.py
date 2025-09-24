@@ -24,7 +24,7 @@ def cache_models():
         print(f"❌ Transformers import failed: {e}")
         return False
     
-    # Cache PhoBERT model
+    # Cache PhoBERT model and common models
     try:
         from transformers import AutoTokenizer, AutoModel
         
@@ -42,6 +42,10 @@ def cache_models():
         with torch.no_grad():
             outputs = model(**inputs)
         print("✅ Model test successful")
+        
+        # Note: Custom trained models (*.pkl) will be downloaded at runtime
+        # This keeps Docker image size manageable
+        print("📝 Note: Custom trained models will be downloaded at runtime")
         
         return True
         
