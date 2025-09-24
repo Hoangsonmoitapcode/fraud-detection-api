@@ -35,11 +35,11 @@ Comprehensive_learning/
 tests/
 notebooks/
 
-# Large model files (CRITICAL: exclude from Docker build)
+# Large model files (INCLUDE phobert_sms_classifier.pkl for AI build)
 models/
-*.pkl
+# *.pkl  # COMMENTED OUT to include phobert_sms_classifier.pkl
 *.joblib
-phobert_sms_classifier.pkl
+# phobert_sms_classifier.pkl  # COMMENTED OUT to include in build
 
 # Large environments and directories
 phobert_env/

@@ -6,7 +6,7 @@ on:
     paths:
       - 'src/**'
       - 'requirements*.txt'
-      - 'Dockerfile.ai-optimized'
+      - 'Dockerfile.include-model'
       - '.github/workflows/docker-build-ai.yml'
   workflow_dispatch:  # Manual trigger
     inputs:
@@ -61,7 +61,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
-        file: ./Dockerfile.ai-optimized
+        file: ./Dockerfile.include-model
         platforms: linux/amd64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
