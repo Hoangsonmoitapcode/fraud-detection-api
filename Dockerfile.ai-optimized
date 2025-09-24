@@ -1,5 +1,6 @@
 # AI-optimized Dockerfile with model download during build
 # This keeps build time under 15 minutes while including the AI model
+# Updated: Model available at GitHub Releases v1.0
 
 FROM python:3.11-slim
 
