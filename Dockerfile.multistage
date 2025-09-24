@@ -1,0 +1,70 @@
+# Multi-stage build for AI model integration
+# Stage 1: Model downloader
+FROM python:3.11-slim as model-downloader
+
+RUN apt-get update && apt-get install -y wget curl && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /models
+
+# Download model in parallel with other build steps
+RUN echo "Downloading AI model..." && \
+    (wget -O phobert_sms_classifier.pkl \
+    "https://github.com/hoangsonmoitapcode/fraud-detection-api/releases/download/v1.0/phobert_sms_classifier.pkl" \
+    || echo "Using fallback download method") &
+
+# You can add multiple model downloads here
+# RUN wget -O other_model.pkl "https://..." &
+
+# Wait for all downloads to complete
+RUN wait
+
+# Stage 2: Dependencies installer  
+FROM python:3.11-slim as deps-installer
+
+RUN apt-get update && apt-get install -y \
+    gcc g++ libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Stage 3: Final production image
+FROM python:3.11-slim
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y \
+    libpq5 curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy dependencies from stage 2
+COPY --from=deps-installer /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=deps-installer /usr/local/bin /usr/local/bin
+
+# Copy models from stage 1
+COPY --from=model-downloader /models/ ./
+
+# Copy source code
+COPY src/ ./src/
+COPY cache_models_clean.py ./
+COPY Procfile ./
+
+# Pre-cache base models
+RUN python cache_models_clean.py
+
+# Create app user
+RUN useradd --create-home --shell /bin/bash app && \
+    chown -R app:app /app
+
+USER app
+
+ENV PYTHONPATH=/app PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
