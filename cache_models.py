@@ -51,12 +51,12 @@ def cache_models():
         return True
         
     except Exception as e:
-        print(f"⚠️ PhoBERT caching failed: {e}")
-        print("📝 Model will be downloaded at runtime")
+        print(f" PhoBERT caching failed: {e}")
+        print(" Model will be downloaded at runtime")
         return False
 
 if __name__ == "__main__":
     success = cache_models()
-    print(f"🏁 Model caching {'completed' if success else 'finished with warnings'}")
+    print(f" Model caching {'completed' if success else 'finished with warnings'}")
     # Don't exit with error even if caching fails
     sys.exit(0)
