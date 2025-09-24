@@ -8,9 +8,10 @@ from .schemas import (
     SmsScamCreate, SmsScamResponse,
     BankingScamCreate, BankingScamResponse,
     WebsiteScamCreate, WebsiteScamResponse,
-    BatchPhoneAnalyze
+    BatchPhoneAnalyze, SMSPredictionRequest, SMSPredictionResponse
 )
 from .phone_service import PhoneService
+from .sms_prediction_service import sms_prediction_service
 
 # Tạo bảng (nếu chưa có)
 Base.metadata.create_all(bind=engine)
@@ -97,12 +98,15 @@ def read_root():
             "batch_analysis": "/analyze-batch/",
             "phone_numbers": "/phone-numbers/",
             "sms_scam": "/sms-scam/",
+            "check_sms": "/check-sms/",
+            "predict_sms_ai": "/predict-sms/",
             "banking_scam": "/banking-scam/",
             "website_scam": "/website-scam/"
         },
         "features": {
             "phone_fraud_detection": "✅ Active",
-            "sms_spam_detection": "✅ Active", 
+            "sms_spam_detection": "✅ Active",
+            "sms_ai_prediction": "✅ Active (PhoBERT)", 
             "banking_scam_check": "✅ Active",
             "website_scam_check": "✅ Active"
         }
@@ -569,9 +573,14 @@ def report_sms_scam(sms_request: SmsScamCreate, db: Session = Depends(get_db)):
     }
 
 
-@app.get("/check-sms/", summary="Check if SMS content is spam")
-def check_sms_scam(sms_content: str, db: Session = Depends(get_db)):
-    """Check if SMS content is reported as spam (supports fuzzy matching)"""
+@app.get("/check-sms/", summary="Check if SMS content is spam (Database + AI fallback)")
+def check_sms_scam(sms_content: str, use_ai_fallback: bool = True, db: Session = Depends(get_db)):
+    """
+    Check if SMS content is reported as spam (supports fuzzy matching + AI fallback)
+    
+    This endpoint first checks the database for exact and fuzzy matches.
+    If no matches are found and use_ai_fallback=True, it uses the AI model for prediction.
+    """
     # First try exact match
     exact_match = db.query(SmsScam).filter(
         SmsScam.sms_content == sms_content
@@ -583,7 +592,8 @@ def check_sms_scam(sms_content: str, db: Session = Depends(get_db)):
             "is_spam": True,
             "label": exact_match.label,
             "risk_level": "HIGH" if exact_match.label == "spam" else "LOW",
-            "match_type": "exact"
+            "match_type": "exact",
+            "source": "database"
         }
     
     # Try fuzzy matching (contains keywords)
@@ -600,17 +610,96 @@ def check_sms_scam(sms_content: str, db: Session = Depends(get_db)):
                 "label": "spam",
                 "risk_level": "MEDIUM",  # Lower confidence for fuzzy match
                 "match_type": "fuzzy",
-                "similar_count": len(spam_matches)
+                "similar_count": len(spam_matches),
+                "source": "database"
             }
     
-    # No matches found
+    # If no database matches found and AI fallback is enabled, use AI model
+    if use_ai_fallback:
+        try:
+            ai_prediction = sms_prediction_service.predict(sms_content)
+            is_spam = ai_prediction["prediction"] == "spam"
+            
+            # Determine risk level based on AI confidence
+            if is_spam:
+                if ai_prediction["confidence"] >= 0.8:
+                    risk_level = "HIGH"
+                elif ai_prediction["confidence"] >= 0.6:
+                    risk_level = "MEDIUM"
+                else:
+                    risk_level = "LOW"
+            else:
+                risk_level = "LOW"
+            
+            return {
+                "sms_content": sms_content,
+                "is_spam": is_spam,
+                "label": ai_prediction["prediction"],
+                "risk_level": risk_level,
+                "match_type": "ai_prediction",
+                "confidence": ai_prediction["confidence"],
+                "source": "ai_model"
+            }
+        except Exception as e:
+            # AI model failed, fall back to unknown
+            pass
+    
+    # No matches found (database or AI)
     return {
         "sms_content": sms_content,
         "is_spam": False,
         "label": "unknown",
         "risk_level": "LOW",
-        "match_type": "none"
+        "match_type": "none",
+        "source": "none"
     }
+
+
+@app.post("/predict-sms/", response_model=SMSPredictionResponse, summary="Predict SMS spam/ham using AI model")
+def predict_sms_spam(request: SMSPredictionRequest):
+    """
+    Predict if SMS content is spam or ham using PhoBERT AI model
+    
+    This endpoint uses a trained PhoBERT model to classify SMS messages as spam or ham.
+    It provides confidence scores and detailed prediction information.
+    """
+    try:
+        # Get prediction from the AI model
+        prediction_result = sms_prediction_service.predict(request.sms_content)
+        
+        # Determine risk level based on prediction and confidence
+        if prediction_result["prediction"] == "spam":
+            if prediction_result["confidence"] >= 0.8:
+                risk_level = "HIGH"
+            elif prediction_result["confidence"] >= 0.6:
+                risk_level = "MEDIUM"
+            else:
+                risk_level = "LOW"
+        else:  # ham
+            risk_level = "LOW"
+        
+        # Get model information
+        model_info = sms_prediction_service.get_model_info()
+        
+        return SMSPredictionResponse(
+            sms_content=request.sms_content,
+            prediction=prediction_result["prediction"],
+            confidence=prediction_result["confidence"],
+            risk_level=risk_level,
+            model_info=model_info,
+            processed_text=prediction_result.get("processed_text", request.sms_content)
+        )
+        
+    except Exception as e:
+        # Return error response in case of failure
+        return SMSPredictionResponse(
+            sms_content=request.sms_content,
+            prediction="unknown",
+            confidence=0.0,
+            risk_level="UNKNOWN",
+            model_info={"error": str(e), "is_loaded": False},
+            processed_text=request.sms_content
+        )
 
 
 # ============================================================================

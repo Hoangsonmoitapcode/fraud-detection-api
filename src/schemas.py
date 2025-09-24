@@ -192,3 +192,37 @@ class WebsiteScamResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+# SMS Prediction Schemas (for AI Model)
+class SMSPredictionRequest(BaseModel):
+    sms_content: str = Field(
+        ...,
+        title="SMS Content",
+        description="Nội dung tin nhắn SMS cần kiểm tra spam/ham",
+        example="Chúc mừng! Bạn đã trúng thưởng 100 triệu đồng. Nhấn link để nhận ngay!",
+        min_length=1,
+        max_length=1000
+    )
+
+
+class SMSPredictionResponse(BaseModel):
+    sms_content: str = Field(..., title="SMS Content", description="Nội dung tin nhắn gốc")
+    prediction: str = Field(..., title="Prediction", description="Kết quả dự đoán: 'spam' hoặc 'ham'")
+    confidence: float = Field(..., title="Confidence", description="Độ tin cậy của dự đoán (0.0-1.0)")
+    risk_level: str = Field(..., title="Risk Level", description="Mức độ rủi ro: HIGH, MEDIUM, LOW")
+    model_info: dict = Field(..., title="Model Info", description="Thông tin về model đã sử dụng")
+    processed_text: str = Field(None, title="Processed Text", description="Văn bản sau khi xử lý")
+    
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "sms_content": "Chúc mừng! Bạn đã trúng thưởng 100 triệu đồng",
+                "prediction": "spam",
+                "confidence": 0.95,
+                "risk_level": "HIGH",
+                "model_info": {"model_type": "PhoBERT", "is_loaded": True},
+                "processed_text": "chúc mừng! bạn đã trúng thưởng 100 triệu đồng"
+            }
+        }
+    }
