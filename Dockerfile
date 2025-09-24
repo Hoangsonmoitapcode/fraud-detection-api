@@ -23,20 +23,9 @@ RUN pip install --no-cache-dir --upgrade pip
 # Install FULL dependencies (including CUDA if needed)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Pre-download common ML models to cache them
-RUN python -c "
-import torch
-import transformers
-from transformers import AutoTokenizer, AutoModel
-print('Pre-caching models...')
-try:
-# Cache common Vietnamese models
-tokenizer = AutoTokenizer.from_pretrained('vinai/phobert-base')
-model = AutoModel.from_pretrained('vinai/phobert-base')
-print('PhoBERT cached successfully')
-except:
-print('PhoBERT cache failed, will download at runtime')
-"
+# Copy model caching script and run it
+COPY cache_models.py ./
+RUN python cache_models.py
 
 # Copy application code
 COPY . .
