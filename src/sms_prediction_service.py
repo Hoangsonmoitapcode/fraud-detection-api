@@ -27,9 +27,27 @@ class SMSPredictionService:
                 logger.error(f"Model file not found: {self.model_path}")
                 return False
             
-            # Load the pickle model
-            with open(self.model_path, 'rb') as f:
-                model_data = pickle.load(f)
+            # Verify file size first
+            file_size = os.path.getsize(self.model_path)
+            logger.info(f"Model file size: {file_size / (1024*1024):.1f} MB")
+            
+            if file_size < 100 * 1024 * 1024:  # Less than 100MB
+                logger.error(f"Model file too small ({file_size} bytes), likely corrupt or incomplete")
+                return False
+            
+            # Load the pickle model with error handling
+            try:
+                with open(self.model_path, 'rb') as f:
+                    model_data = pickle.load(f)
+            except (pickle.UnpicklingError, EOFError) as e:
+                logger.error(f"Pickle file corrupt: {e}")
+                logger.info("Attempting to remove corrupt file...")
+                try:
+                    os.remove(self.model_path)
+                    logger.info("Corrupt file removed")
+                except:
+                    pass
+                return False
                 
             # Extract model components
             if isinstance(model_data, dict):
