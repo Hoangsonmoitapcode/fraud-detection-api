@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+docs/
+Comprehensive_learning/
+
+# Development files
+.env.example
+tests/
+notebooks/
+
+# Large model files (if any)
+models/
+*.pkl
+*.joblib
+
+# Logs
+*.log
+logs/
