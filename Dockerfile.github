@@ -24,31 +24,9 @@ COPY requirements.txt requirements-prod.txt ./
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
-# Pre-cache common models (lightweight ones only)
-RUN python -c "
-import torch
-print(f'PyTorch {torch.__version__} installed')
-
-import transformers
-print(f'Transformers {transformers.__version__} installed')
-
-# Pre-download PhoBERT base model (this is reasonable size)
-try:
-from transformers import AutoTokenizer, AutoModel
-print('Downloading PhoBERT base model...')
-tokenizer = AutoTokenizer.from_pretrained('vinai/phobert-base')
-model = AutoModel.from_pretrained('vinai/phobert-base')
-print('✅ PhoBERT base model cached')
-
-# Quick test
-inputs = tokenizer('Xin chào', return_tensors='pt')
-with torch.no_grad():
-outputs = model(**inputs)
-print('✅ Model test successful')
-except Exception as e:
-print(f'⚠️ Model caching failed: {e}')
-print('Models will download at runtime')
-"
+# Create model cache script and run it (clean version without emojis)
+COPY cache_models_clean.py ./
+RUN python cache_models_clean.py
 
 # Copy source code (excluding large files via .dockerignore)
 COPY src/ ./src/

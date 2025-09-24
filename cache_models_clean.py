@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Pre-cache ML models during Docker build to reduce startup time
+Pre-cache ML models during Docker build (GitHub Actions compatible)
+Clean version without emojis to avoid encoding issues
 """
 
 import os
@@ -30,33 +31,32 @@ def cache_models():
         
         print("Downloading PhoBERT tokenizer...")
         tokenizer = AutoTokenizer.from_pretrained('vinai/phobert-base')
-        print("PhoBERT tokenizer cached")
+        print("PhoBERT tokenizer cached successfully")
         
         print("Downloading PhoBERT model...")
         model = AutoModel.from_pretrained('vinai/phobert-base')
-        print("PhoBERT model cached")
+        print("PhoBERT model cached successfully")
         
         # Test the model briefly
         print("Testing model...")
-        inputs = tokenizer("Xin chào", return_tensors="pt")
+        inputs = tokenizer("Xin chao Viet Nam", return_tensors="pt")
         with torch.no_grad():
             outputs = model(**inputs)
         print("Model test successful")
         
-        # Note: Custom trained models (*.pkl) will be downloaded at runtime
-        # This keeps Docker image size manageable for GitHub Actions
-        print("Note: Custom trained models will be downloaded at runtime")
+        # Note about custom models
+        print("Note: Custom trained models (pkl files) will be downloaded at runtime")
         print("This keeps the Docker image lightweight for GitHub Actions")
         
         return True
         
     except Exception as e:
-        print(f"⚠️ PhoBERT caching failed: {e}")
-        print("📝 Model will be downloaded at runtime")
+        print(f"PhoBERT caching failed: {e}")
+        print("Models will be downloaded at runtime instead")
         return False
 
 if __name__ == "__main__":
     success = cache_models()
-    print(f"🏁 Model caching {'completed' if success else 'finished with warnings'}")
-    # Don't exit with error even if caching fails
+    print(f"Model caching {'completed successfully' if success else 'finished with warnings'}")
+    # Don't exit with error even if caching fails - let the app handle runtime downloads
     sys.exit(0)
