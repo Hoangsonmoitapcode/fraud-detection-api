@@ -3,8 +3,20 @@ name: Build and Push Docker Image
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'requirements*.txt'
+      - 'Dockerfile'
+      - 'cache_models.py'
+      - '.github/workflows/docker-build.yml'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'requirements*.txt'
+      - 'Dockerfile'
+      - 'cache_models.py'
+  workflow_dispatch:  # Manual trigger
 
 env:
   REGISTRY: ghcr.io
