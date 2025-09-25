@@ -220,8 +220,8 @@ quick_test.py
 start_and_test.py
 
 # Large model files (use Git LFS or external storage)
-*.pkl
-phobert_sms_classifier.pkl
+# *.pkl - Commented out to allow Git LFS tracking
+# phobert_sms_classifier.pkl - Commented out to allow Git LFS tracking
 
 # Learning materials (local only)
 COMPREHENSIVE_LEARNING.md
