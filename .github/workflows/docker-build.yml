@@ -1,23 +1,14 @@
-name: Build AI-Enabled Docker Image
+name: Build and Push Docker Image
 
 on:
   push:
     branches: [ main ]
     paths:
       - 'src/**'
-      - 'requirements*.txt'
-      - 'Dockerfile.include-model'
-      - '.github/workflows/docker-build-ai.yml'
+      - 'requirements.txt'
+      - 'Dockerfile'
+      - '.github/workflows/docker-build.yml'
   workflow_dispatch:  # Manual trigger
-    inputs:
-      dockerfile:
-        description: 'Dockerfile to use'
-        required: false
-        default: 'Dockerfile.ai-optimized'
-        type: choice
-        options:
-          - 'Dockerfile.ai-optimized'
-          - 'Dockerfile.multistage'
 
 env:
   REGISTRY: ghcr.io
@@ -26,7 +17,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20  # Increased timeout for model download
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
@@ -34,6 +25,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        lfs: true  # Enable Git LFS
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -54,14 +47,13 @@ jobs:
           type=ref,event=branch
           type=ref,event=pr
           type=sha,prefix=sha-
-          type=raw,value=latest-ai,enable={{is_default_branch}}
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
-        file: ./Dockerfile.include-model
+        file: ./Dockerfile
         platforms: linux/amd64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
@@ -73,9 +65,9 @@ jobs:
           
     - name: Build summary
       run: |
-        echo "## 🚀 AI-Enabled Docker Image Built Successfully" >> $GITHUB_STEP_SUMMARY
-        echo "- **Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-ai\`" >> $GITHUB_STEP_SUMMARY
-        echo "- **Features**: Full AI functionality included" >> $GITHUB_STEP_SUMMARY
-        echo "- **Model**: PhoBERT SMS classifier (518MB)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Build time**: ~8-12 minutes" >> $GITHUB_STEP_SUMMARY
-        echo "- **Ready for**: Production deployment with AI" >> $GITHUB_STEP_SUMMARY
+        echo "## 🚀 Docker Image Built Successfully" >> $GITHUB_STEP_SUMMARY
+        echo "- **Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Features**: AI-enabled with PhoBERT model" >> $GITHUB_STEP_SUMMARY
+        echo "- **Model**: phobert_sms_classifier.pkl (518MB via Git LFS)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build time**: ~10-15 minutes" >> $GITHUB_STEP_SUMMARY
+        echo "- **Ready for**: Production deployment" >> $GITHUB_STEP_SUMMARY
