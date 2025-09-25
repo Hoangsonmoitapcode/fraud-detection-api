@@ -31,6 +31,9 @@ RUN useradd --create-home --shell /bin/bash app
 # Set working directory
 WORKDIR /app
 
+# Set PYTHONPATH
+ENV PYTHONPATH=/app
+
 # Copy only essential Python packages
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
