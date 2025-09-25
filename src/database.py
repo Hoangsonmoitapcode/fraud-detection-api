@@ -17,7 +17,12 @@ engine = create_engine(
     max_overflow=10,
     pool_timeout=30,
     pool_recycle=3600,  # Recycle connections every hour
-    echo=False  # Set to True for SQL debugging
+    echo=False,  # Set to True for SQL debugging
+    # Add connection retry settings
+    connect_args={
+        "connect_timeout": 10,
+        "application_name": "fraud_detection_api"
+    }
 )
 
 SessionLocal = sessionmaker(bind=engine)

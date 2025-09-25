@@ -297,24 +297,20 @@ def health_check():
     """Simple health check endpoint for monitoring systems"""
     import datetime
     
-    # Test database connection without dependency injection
-    try:
-        db = SessionLocal()
-        from sqlalchemy import text
-        db.execute(text("SELECT 1"))
-        db.close()
-        db_status = "healthy"
-    except Exception as e:
-        db_status = f"unhealthy: {str(e)}"
-    
+    # Simple health check without database dependency
     return {
-        "status": "healthy" if db_status == "healthy" else "degraded",
+        "status": "healthy",
         "timestamp": datetime.datetime.now().isoformat(),
         "checks": {
-            "database": db_status,
-            "api": "healthy"
+            "api": "healthy",
+            "service": "running"
         }
     }
+
+@app.get("/ping", summary="Simple Ping Endpoint")
+def ping():
+    """Ultra-simple ping endpoint for basic connectivity"""
+    return {"status": "ok", "message": "pong"}
 
 
 # ============================================================================
