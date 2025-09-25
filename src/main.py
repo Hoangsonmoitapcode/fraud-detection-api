@@ -293,17 +293,19 @@ def confirm_risky_number(request: ConfirmRiskyRequest, db: Session = Depends(get
 
 
 @app.get("/health", summary="Health Check Endpoint")
-def health_check(db: Session = Depends(get_db)):
+def health_check():
     """Simple health check endpoint for monitoring systems"""
+    import datetime
+    
+    # Test database connection without dependency injection
     try:
-        # Test database connection
+        db = SessionLocal()
         from sqlalchemy import text
         db.execute(text("SELECT 1"))
+        db.close()
         db_status = "healthy"
     except Exception as e:
         db_status = f"unhealthy: {str(e)}"
-    
-    import datetime
     
     return {
         "status": "healthy" if db_status == "healthy" else "degraded",
