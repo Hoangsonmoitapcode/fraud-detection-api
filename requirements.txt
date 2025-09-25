@@ -1,10 +1,19 @@
+# Core web framework
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
+
+# Database
 sqlalchemy>=2.0.25
 psycopg2-binary>=2.9.9
 alembic==1.12.1
+
+# Data validation
 pydantic>=2.5.0
+
+# System monitoring
 psutil>=5.9.0
-torch>=1.9.0
+
+# AI/ML - CPU optimized versions
+torch>=1.9.0 --index-url https://download.pytorch.org/whl/cpu
 transformers>=4.20.0
 scikit-learn>=1.0.0
