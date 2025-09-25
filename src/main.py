@@ -13,8 +13,16 @@ from .schemas import (
 from .phone_service import PhoneService
 from .sms_prediction_service import sms_prediction_service
 
-# Tạo bảng (nếu chưa có)
-Base.metadata.create_all(bind=engine)
+# Startup logging
+print("🚀 Starting Fraud Detection API...")
+print("📦 Loading dependencies...")
+
+# Tạo bảng (nếu chưa có) - với error handling
+try:
+    Base.metadata.create_all(bind=engine)
+    print("✅ Database tables created successfully")
+except Exception as e:
+    print(f"⚠️ Warning: Could not create database tables: {e}")
 
 # Auto-populate phone headings on startup (for Railway deployment)
 def populate_phone_headings_if_empty():
@@ -39,6 +47,16 @@ try:
     populate_phone_headings_if_empty()
 except Exception as e:
     print(f"⚠️ Startup warning: {e}")
+
+# Test model loading
+print("🤖 Testing AI model loading...")
+try:
+    test_prediction = sms_prediction_service.predict("Test message")
+    print(f"✅ AI model loaded successfully: {test_prediction['prediction']}")
+except Exception as e:
+    print(f"⚠️ AI model loading warning: {e}")
+
+print("🎉 Application startup completed!")
 
 # Dependency to get database session
 def get_db():
