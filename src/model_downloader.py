@@ -17,12 +17,16 @@ class ModelDownloader:
         self.model_url = model_url or "https://huggingface.co/hoangson2006/phobert-sms-classifier/resolve/main/phobert_sms_classifier.pkl"
         
         # Determine the correct path based on environment
-        if os.path.exists("/app"):  # Railway production
+        # In Railway, always use /app/ even if it doesn't exist yet
+        if os.environ.get("RAILWAY_ENVIRONMENT") == "production" or os.path.exists("/app"):
             self.local_path = "/app/phobert_sms_classifier.pkl"
         else:  # Local development
             self.local_path = "phobert_sms_classifier.pkl"
             
         self.download_path = Path(self.local_path)
+        
+        # Ensure parent directory exists
+        self.download_path.parent.mkdir(parents=True, exist_ok=True)
     
     def is_model_downloaded(self) -> bool:
         """Check if model is already downloaded"""
@@ -51,8 +55,10 @@ class ModelDownloader:
             logger.info(f"🔄 Downloading model from: {self.model_url}")
             logger.info("⏳ This may take 1-2 minutes for 518MB model...")
             
-            # Create directory if not exists
+            # Create directory if not exists (especially important for Railway)
+            logger.info(f"📁 Creating directory: {self.download_path.parent}")
             self.download_path.parent.mkdir(parents=True, exist_ok=True)
+            logger.info(f"✅ Directory created: {self.download_path.parent}")
             
             # Download with progress
             response = requests.get(self.model_url, stream=True)
