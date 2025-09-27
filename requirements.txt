@@ -1,7 +1,7 @@
 # AI/ML - Local / Development
 torch==2.5.0
 torchvision==0.23.0
-torchaudio==2.5.0
+torchaudio==2.6.0
 
 # Core web framework
 fastapi==0.115.13
