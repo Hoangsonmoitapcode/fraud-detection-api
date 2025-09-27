@@ -17,12 +17,15 @@ class ModelDownloader:
         self.model_url = model_url or "https://huggingface.co/hoangson2006/phobert-sms-classifier/resolve/main/phobert_sms_classifier.pkl"
         
         # Determine the correct path based on environment
-        # Check for Railway environment variables
+        # Check for Railway environment variables and auto-detect
         is_railway = (
             os.environ.get("RAILWAY_ENVIRONMENT") == "production" or
             os.environ.get("RAILWAY_PROJECT_ID") or
             os.environ.get("RAILWAY_SERVICE_ID") or
-            os.path.exists("/app")
+            os.environ.get("RAILWAY_DEPLOYMENT_ID") or
+            os.path.exists("/app") or
+            # Auto-detect Railway by checking if we're in a container
+            (os.path.exists("/.dockerenv") and not os.path.exists("/home"))
         )
         
         if is_railway:
