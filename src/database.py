@@ -33,7 +33,8 @@ def test_connection():
     """Test database connection"""
     try:
         with engine.connect() as conn:
-            result = conn.execute("SELECT 1")
+            from sqlalchemy import text
+            result = conn.execute(text("SELECT 1"))
             print("✅ Database connection successful!")
             print(f"📊 Connected to: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'localhost'}")
             return True

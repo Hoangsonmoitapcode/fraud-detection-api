@@ -66,17 +66,17 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY src/ ./src/
 COPY config/ ./config/
 
-# Handle Git LFS model file with verification
-COPY .git ./.git
+# Copy model file and gitattributes (Git LFS already handled by GitHub Actions)
 COPY .gitattributes ./
 COPY phobert_sms_classifier.pkl ./
 
-# Verify model file integrity and fallback mechanism
+# Verify model file integrity
 RUN ls -la phobert_sms_classifier.pkl && \
     echo "Model file size: $(du -h phobert_sms_classifier.pkl)" && \
     if [ ! -f phobert_sms_classifier.pkl ] || [ $(stat -f%z phobert_sms_classifier.pkl 2>/dev/null || stat -c%s phobert_sms_classifier.pkl) -lt 100000000 ]; then \
-    echo "WARNING: Model file missing or too small - will attempt Git LFS pull"; \
-    git lfs pull 2>/dev/null || echo "Git LFS pull failed - model will load from fallback"; \
+        echo "WARNING: Model file missing or too small - will use fallback mode"; \
+    else \
+        echo "✅ Model file found and size looks good"; \
     fi
 
 # Set environment variables for better performance
