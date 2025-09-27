@@ -1,103 +1,87 @@
-#!/usr/bin/env python3
 """
-Model downloader service - downloads large models from cloud storage
-This allows us to keep Docker image small while still having fast model access
+Model downloader for HuggingFace Hub
+Downloads the PhoBERT SMS classifier model from HuggingFace Hub
 """
 
 import os
 import requests
-import pickle
 import logging
-from typing import Optional
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 class ModelDownloader:
-    """Downloads and caches large ML models from cloud storage"""
+    """Downloads model from HuggingFace Hub"""
     
-    def __init__(self, cache_dir: str = "/tmp/models"):
-        self.cache_dir = Path(cache_dir)
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+    def __init__(self, model_url: str = None, local_path: str = "phobert_sms_classifier.pkl"):
+        self.model_url = model_url or "https://huggingface.co/hoangson2006/phobert-sms-classifier/resolve/main/phobert_sms_classifier.pkl"
+        self.local_path = local_path
+        self.download_path = Path(self.local_path)
+    
+    def is_model_downloaded(self) -> bool:
+        """Check if model is already downloaded"""
+        if not self.download_path.exists():
+            return False
         
-    def download_model(self, model_name: str, url: str, force_download: bool = False) -> Optional[str]:
+        # Check if file is complete (at least 100MB)
+        file_size = self.download_path.stat().st_size
+        return file_size >= 100 * 1024 * 1024  # 100MB minimum
+    
+    def download_model(self, force_download: bool = False) -> bool:
         """
-        Download model from URL and cache locally
+        Download model from HuggingFace Hub
         
         Args:
-            model_name: Name of the model file
-            url: URL to download from
-            force_download: Force re-download even if cached
+            force_download: Force download even if file exists
             
         Returns:
-            Path to downloaded model file or None if failed
+            bool: True if download successful, False otherwise
         """
-        model_path = self.cache_dir / model_name
-        
-        # Check if already cached
-        if model_path.exists() and not force_download:
-            logger.info(f"Model {model_name} already cached at {model_path}")
-            return str(model_path)
-            
-        logger.info(f"Downloading model {model_name} from {url}")
+        if not force_download and self.is_model_downloaded():
+            logger.info(f"✅ Model already downloaded: {self.download_path}")
+            return True
         
         try:
+            logger.info(f"🔄 Downloading model from: {self.model_url}")
+            logger.info("⏳ This may take 1-2 minutes for 518MB model...")
+            
+            # Create directory if not exists
+            self.download_path.parent.mkdir(parents=True, exist_ok=True)
+            
             # Download with progress
-            response = requests.get(url, stream=True)
+            response = requests.get(self.model_url, stream=True)
             response.raise_for_status()
             
             total_size = int(response.headers.get('content-length', 0))
-            downloaded = 0
+            downloaded_size = 0
             
-            with open(model_path, 'wb') as f:
+            with open(self.download_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
                         f.write(chunk)
-                        downloaded += len(chunk)
+                        downloaded_size += len(chunk)
                         
-                        # Progress logging every 50MB
-                        if downloaded % (50 * 1024 * 1024) == 0:
-                            progress = (downloaded / total_size) * 100 if total_size else 0
-                            logger.info(f"Downloaded {downloaded / (1024*1024):.1f}MB ({progress:.1f}%)")
+                        # Log progress every 10MB
+                        if downloaded_size % (10 * 1024 * 1024) == 0:
+                            progress = (downloaded_size / total_size * 100) if total_size > 0 else 0
+                            logger.info(f"📥 Downloaded: {downloaded_size / (1024*1024):.1f}MB ({progress:.1f}%)")
             
-            logger.info(f"Model {model_name} downloaded successfully to {model_path}")
-            return str(model_path)
-            
+            # Verify download
+            if self.is_model_downloaded():
+                logger.info(f"✅ Model downloaded successfully: {self.download_path}")
+                logger.info(f"📊 File size: {self.download_path.stat().st_size / (1024*1024):.1f}MB")
+                return True
+            else:
+                logger.error("❌ Downloaded file is too small, download may have failed")
+                return False
+                
         except Exception as e:
-            logger.error(f"Failed to download model {model_name}: {e}")
-            # Clean up partial download
-            if model_path.exists():
-                model_path.unlink()
-            return None
+            logger.error(f"❌ Download failed: {str(e)}")
+            return False
     
-    def get_phobert_sms_model(self) -> Optional[str]:
-        """
-        Get PhoBERT SMS classifier model
-        Try multiple sources in order of preference
-        """
-        model_name = "phobert_sms_classifier.pkl"
-        
-        # Try local file first (for development)
-        local_path = Path("phobert_sms_classifier.pkl")
-        if local_path.exists():
-            logger.info(f"Using local model: {local_path}")
-            return str(local_path)
-        
-        # Try cloud sources
-        sources = [
-            # You can add your cloud storage URLs here
-            # "https://your-cloud-storage.com/models/phobert_sms_classifier.pkl",
-            # "https://github.com/your-repo/releases/download/v1.0/phobert_sms_classifier.pkl",
-        ]
-        
-        for url in sources:
-            logger.info(f"Trying to download from: {url}")
-            result = self.download_model(model_name, url)
-            if result:
-                return result
-        
-        logger.warning("Could not download PhoBERT SMS model from any source")
-        return None
+    def get_model_path(self) -> str:
+        """Get the local path to the downloaded model"""
+        return str(self.download_path) if self.is_model_downloaded() else None
 
 # Global instance
 model_downloader = ModelDownloader()

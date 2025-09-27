@@ -66,22 +66,8 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY src/ ./src/
 COPY config/ ./config/
 
-# Copy model file directly (Git LFS should be resolved by GitHub Actions)
-COPY .gitattributes ./
-COPY phobert_sms_classifier.pkl ./
-
-# Verify model file integrity - if too small, try alternative methods
-RUN MODEL_SIZE=$(stat -c%s phobert_sms_classifier.pkl 2>/dev/null || echo 0) && \
-    echo "Model file size: $MODEL_SIZE bytes ($(du -h phobert_sms_classifier.pkl))" && \
-    if [ "$MODEL_SIZE" -lt 100000000 ]; then \
-    echo "❌ Model file too small ($MODEL_SIZE bytes), likely Git LFS pointer"; \
-    echo "📋 Model file content (first 5 lines):"; \
-    head -n 5 phobert_sms_classifier.pkl || echo "Cannot read file"; \
-    echo "🔄 App will use fallback heuristic predictions"; \
-    echo "ℹ️ This is expected on Railway free plan due to Git LFS limitations"; \
-    else \
-    echo "✅ Model file size OK: $MODEL_SIZE bytes - AI predictions will work"; \
-    fi
+# Model will be downloaded from HuggingFace Hub at runtime
+# No need to copy model file - it will be downloaded when needed
 
 # Set environment variables for better performance
 ENV PYTHONPATH=/app \

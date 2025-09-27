@@ -31,23 +31,11 @@ jobs:
       with:
         fetch-depth: 0  # Full history
     
-    - name: Verify model file (no LFS needed)
+    - name: Verify build environment
       run: |
-        echo "Checking model file (uploaded directly, no LFS)..."
-        ls -la phobert_sms_classifier.pkl
-        du -h phobert_sms_classifier.pkl
-        MODEL_SIZE=$(stat -c%s phobert_sms_classifier.pkl)
-        echo "Model file size: $MODEL_SIZE bytes"
-        
-        if [ "$MODEL_SIZE" -lt 100000000 ]; then
-          echo "❌ ERROR: Model file too small ($MODEL_SIZE bytes)"
-          echo "This means model file was not uploaded correctly"
-          echo "Build will fail to ensure model is available"
-          exit 1
-        else
-          echo "✅ SUCCESS: Model file uploaded correctly ($MODEL_SIZE bytes)"
-          echo "✅ AI model will be available in the app"
-        fi
+        echo "✅ Build environment ready"
+        echo "📦 Model will be downloaded from HuggingFace Hub at runtime"
+        echo "🚀 Fast build - no large files to copy"
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3

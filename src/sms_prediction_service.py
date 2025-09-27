@@ -24,6 +24,13 @@ class SMSPredictionService:
             f"/app/{model_path}",
             f"/tmp/models/{model_path}",
         ]
+        
+        # Import model downloader
+        try:
+            from .model_downloader import model_downloader
+            self.model_downloader = model_downloader
+        except ImportError:
+            self.model_downloader = None
         self.model_path = None
         self.model = None
         self.tokenizer = None
@@ -92,14 +99,14 @@ class SMSPredictionService:
             self.model_path = self._find_model_file()
             
             if not self.model_path:
-                logger.error("Model file not found in any expected location")
+                logger.warning("Model file not found in local paths, attempting to download from HuggingFace...")
                 
-                # Try Git LFS pull if available
-                if self._attempt_git_lfs_pull():
-                    self.model_path = self._find_model_file()
-                
-                if not self.model_path:
-                    logger.error("❌ CRITICAL: Model file not found after all attempts!")
+                # Try to download from HuggingFace Hub
+                if self.model_downloader and self.model_downloader.download_model():
+                    self.model_path = self.model_downloader.get_model_path()
+                    logger.info(f"✅ Model downloaded from HuggingFace: {self.model_path}")
+                else:
+                    logger.error("❌ CRITICAL: Model file not found and download failed!")
                     logger.error("This means the AI model is not available - app cannot function properly")
                     return False
             

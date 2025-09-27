@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Model files (downloaded from HuggingFace)
+*.pkl
+phobert_sms_classifier.pkl
+
 # C extensions
 *.so
 
