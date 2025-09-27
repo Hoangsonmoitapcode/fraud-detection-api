@@ -32,10 +32,19 @@ jobs:
         lfs: true  # Enable Git LFS
         fetch-depth: 0  # Full history for better Git LFS support
     
-    - name: Setup Git LFS
+    - name: Setup Git LFS and verify model file
       run: |
         git lfs install
         git lfs pull
+        echo "Verifying model file after LFS pull:"
+        ls -la phobert_sms_classifier.pkl
+        du -h phobert_sms_classifier.pkl
+        MODEL_SIZE=$(stat -c%s phobert_sms_classifier.pkl)
+        echo "Model file size: $MODEL_SIZE bytes"
+        if [ "$MODEL_SIZE" -lt 100000000 ]; then
+          echo "ERROR: Model file too small, Git LFS failed"
+          exit 1
+        fi
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3

@@ -133,9 +133,9 @@ database/
 !config/
 !.gitattributes
 !phobert_sms_classifier.pkl
-!.git/
 
-# Note: .git directory is needed for Git LFS functionality in Railway
+# Exclude .git directory - Railway doesn't support it in build context
+.git/
 
 # Note: phobert_sms_classifier.pkl is INCLUDED for AI functionality
 # .git and .gitattributes are needed for Git LFS functionality
