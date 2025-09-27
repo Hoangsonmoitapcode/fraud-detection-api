@@ -184,12 +184,20 @@ class SMSPredictionService:
         return text
     
     def _fallback_prediction(self, text: str) -> Dict[str, Union[str, float]]:
-        """Simple heuristic-based spam detection as fallback"""
+        """Enhanced heuristic-based spam detection with Vietnamese keywords"""
         spam_keywords = [
+            # English keywords
             'free', 'winner', 'congratulations', 'prize', 'urgent', 'act now',
             'limited time', 'click here', 'offer expires', 'discount', '100%',
             'cash', 'money', 'earn', 'income', 'guaranteed', 'risk free',
-            'no obligation', 'call now', 'don\'t delay', 'order now'
+            'no obligation', 'call now', 'don\'t delay', 'order now',
+            
+            # Vietnamese keywords - common spam patterns
+            'chúc mừng', 'trúng thưởng', 'miễn phí', 'quà tặng', 'khuyến mãi',
+            'giảm giá', 'click', 'nhấn link', 'liên hệ ngay', 'cơ hội duy nhất',
+            'triệu đồng', 'tỷ đồng', 'thưởng lớn', 'may mắn', 'trúng số',
+            'vay tiền', 'vay vốn', 'tín dụng', 'thẻ visa', 'bitcoin',
+            'đầu tư', 'kiếm tiền', 'làm giàu', 'thu nhập', 'lợi nhuận'
         ]
         
         text_lower = text.lower()

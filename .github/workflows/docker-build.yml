@@ -29,21 +29,36 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        lfs: true  # Enable Git LFS
+        lfs: false  # Don't auto-pull LFS, we'll do it manually
         fetch-depth: 0  # Full history for better Git LFS support
     
-    - name: Setup Git LFS and verify model file
+    - name: Setup Git LFS and force pull model file
       run: |
+        echo "Installing Git LFS..."
         git lfs install
-        git lfs pull
-        echo "Verifying model file after LFS pull:"
+        
+        echo "Checking LFS tracked files..."
+        git lfs ls-files
+        
+        echo "Current model file (should be pointer):"
+        ls -la phobert_sms_classifier.pkl
+        head -n 5 phobert_sms_classifier.pkl
+        
+        echo "Force pulling LFS files..."
+        git lfs pull --include="*.pkl"
+        
+        echo "Model file after LFS pull:"
         ls -la phobert_sms_classifier.pkl
         du -h phobert_sms_classifier.pkl
         MODEL_SIZE=$(stat -c%s phobert_sms_classifier.pkl)
         echo "Model file size: $MODEL_SIZE bytes"
+        
         if [ "$MODEL_SIZE" -lt 100000000 ]; then
-          echo "ERROR: Model file too small, Git LFS failed"
+          echo "ERROR: Model file still too small after Git LFS pull"
+          echo "This means Git LFS is not working properly"
           exit 1
+        else
+          echo "SUCCESS: Model file resolved correctly ($MODEL_SIZE bytes)"
         fi
 
     - name: Set up Docker Buildx

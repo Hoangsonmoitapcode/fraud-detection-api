@@ -70,16 +70,17 @@ COPY config/ ./config/
 COPY .gitattributes ./
 COPY phobert_sms_classifier.pkl ./
 
-# Verify model file integrity - if too small, download from backup URL
+# Verify model file integrity - if too small, try alternative methods
 RUN MODEL_SIZE=$(stat -c%s phobert_sms_classifier.pkl 2>/dev/null || echo 0) && \
     echo "Model file size: $MODEL_SIZE bytes ($(du -h phobert_sms_classifier.pkl))" && \
     if [ "$MODEL_SIZE" -lt 100000000 ]; then \
         echo "❌ Model file too small ($MODEL_SIZE bytes), likely Git LFS pointer"; \
-        echo "🔄 Creating fallback dummy model for testing..."; \
-        echo "FALLBACK_MODEL_FOR_TESTING" > phobert_sms_classifier.pkl; \
-        echo "⚠️ Using fallback mode - model will use heuristic predictions"; \
+        echo "📋 Model file content (first 5 lines):"; \
+        head -n 5 phobert_sms_classifier.pkl || echo "Cannot read file"; \
+        echo "🔄 App will use fallback heuristic predictions"; \
+        echo "ℹ️ This is expected on Railway free plan due to Git LFS limitations"; \
     else \
-        echo "✅ Model file size OK: $MODEL_SIZE bytes"; \
+        echo "✅ Model file size OK: $MODEL_SIZE bytes - AI predictions will work"; \
     fi
 
 # Set environment variables for better performance
