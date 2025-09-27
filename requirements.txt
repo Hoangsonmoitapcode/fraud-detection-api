@@ -1,12 +1,12 @@
 # AI/ML - CPU optimized versions for development
---index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.8.0+cpu
 torchvision==0.23.0+cpu
 torchaudio==2.8.0+cpu
 
 # Core web framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
+fastapi==0.115.5
+uvicorn[standard]==0.32.0
 
 # Database
 sqlalchemy>=2.0.25
