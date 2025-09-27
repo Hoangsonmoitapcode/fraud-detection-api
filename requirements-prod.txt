@@ -1,14 +1,14 @@
 # Production requirements - optimized for Railway with faster builds
-fastapi==0.115.5
-uvicorn[standard]==0.32.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
 sqlalchemy>=2.0.25
 psycopg2-binary>=2.9.9
-alembic==1.12.1
+alembic>=1.12.1
 pydantic>=2.5.0
 psutil>=5.9.0
-transformers==4.41
-tokenizers==0.15.3
-scikit-learn==1.3.2
-numpy==1.24.4
+transformers>=4.38.0
+tokenizers>=0.15.2
+scikit-learn>=1.3.2
+numpy>=1.26.4
 requests>=2.31.0
 huggingface-hub>=0.20.0
