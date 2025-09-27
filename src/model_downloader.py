@@ -13,9 +13,15 @@ logger = logging.getLogger(__name__)
 class ModelDownloader:
     """Downloads model from HuggingFace Hub"""
     
-    def __init__(self, model_url: str = None, local_path: str = "phobert_sms_classifier.pkl"):
+    def __init__(self, model_url: str = None, local_path: str = None):
         self.model_url = model_url or "https://huggingface.co/hoangson2006/phobert-sms-classifier/resolve/main/phobert_sms_classifier.pkl"
-        self.local_path = local_path
+        
+        # Determine the correct path based on environment
+        if os.path.exists("/app"):  # Railway production
+            self.local_path = "/app/phobert_sms_classifier.pkl"
+        else:  # Local development
+            self.local_path = "phobert_sms_classifier.pkl"
+            
         self.download_path = Path(self.local_path)
     
     def is_model_downloaded(self) -> bool:

@@ -19,6 +19,7 @@ class SMSPredictionService:
         # Try multiple possible model paths - Railway specific
         self.possible_paths = [
             "/app/phobert_sms_classifier.pkl",  # Primary path for Railway
+            "phobert_sms_classifier.pkl",       # Local development
             os.environ.get("MODEL_PATH", "/app/phobert_sms_classifier.pkl"),
             model_path,
             f"/app/{model_path}",
