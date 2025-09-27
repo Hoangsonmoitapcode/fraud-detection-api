@@ -17,11 +17,20 @@ class ModelDownloader:
         self.model_url = model_url or "https://huggingface.co/hoangson2006/phobert-sms-classifier/resolve/main/phobert_sms_classifier.pkl"
         
         # Determine the correct path based on environment
-        # In Railway, always use /app/ even if it doesn't exist yet
-        if os.environ.get("RAILWAY_ENVIRONMENT") == "production" or os.path.exists("/app"):
+        # Check for Railway environment variables
+        is_railway = (
+            os.environ.get("RAILWAY_ENVIRONMENT") == "production" or
+            os.environ.get("RAILWAY_PROJECT_ID") or
+            os.environ.get("RAILWAY_SERVICE_ID") or
+            os.path.exists("/app")
+        )
+        
+        if is_railway:
             self.local_path = "/app/phobert_sms_classifier.pkl"
-        else:  # Local development
+            logger.info("🚀 Railway environment detected - using /app/ path")
+        else:
             self.local_path = "phobert_sms_classifier.pkl"
+            logger.info("💻 Local environment detected - using current directory")
             
         self.download_path = Path(self.local_path)
         

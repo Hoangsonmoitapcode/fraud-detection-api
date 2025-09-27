@@ -22,6 +22,7 @@
     "production": {
       "variables": {
         "PORT": "8000",
+        "RAILWAY_ENVIRONMENT": "production",
         "MODEL_PATH": "/app/phobert_sms_classifier.pkl",
         "PYTHONUNBUFFERED": "1",
         "PYTHONDONTWRITEBYTECODE": "1",
