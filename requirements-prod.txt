@@ -1,8 +1,4 @@
 # AI/ML - CPU optimized versions for production
---index-url https://download.pytorch.org/whl/cpu
-torch==2.0.1+cpu
-torchvision==0.15.2+cpu
-torchaudio==2.0.2+cpu
 
 # Production requirements - optimized for Railway with faster builds
 fastapi==0.104.1

@@ -22,7 +22,14 @@ COPY requirements-prod.txt ./
 # Upgrade pip
 RUN pip install --no-cache-dir --upgrade pip
 
-# Install all dependencies from the single requirements file
+# Install PyTorch CPU versions first, explicitly providing the index URL
+RUN pip install --no-cache-dir \
+    --index-url https://download.pytorch.org/whl/cpu \
+    torch==2.0.1+cpu \
+    torchvision==0.15.2+cpu \
+    torchaudio==2.0.2+cpu
+
+# Install the rest of the dependencies from the requirements file
 RUN pip install --no-cache-dir -r requirements-prod.txt
 
 # Clean up pip cache
