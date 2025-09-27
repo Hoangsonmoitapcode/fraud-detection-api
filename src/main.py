@@ -12,6 +12,8 @@ from .schemas import (
 )
 from .phone_service import PhoneService
 from .sms_prediction_service import sms_prediction_service
+# Thêm get_model_loader và get_global_model_info
+from .model_loader import get_model_loader, get_global_model_info
 
 # Startup logging
 print("🚀 Starting Fraud Detection API...")
@@ -368,135 +370,53 @@ def simple_health():
         "version": "1.0.0"
     }
 
-@app.get("/model-status", summary="AI Model Status and Information")
+@app.get("/model-status", summary="Trạng thái và thông tin của AI Model")
 def model_status():
-    """Get detailed information about the AI model status"""
-    try:
-        model_info = sms_prediction_service.get_model_info()
-        model_health = sms_prediction_service.health_check()
-        
-        return {
-            "model_info": model_info,
-            "health_check": model_health,
-            "recommendations": _get_model_recommendations(model_info, model_health)
-        }
-    except Exception as e:
-        return {
-            "error": str(e),
-            "model_info": {"is_loaded": False},
-            "health_check": {"status": "error"}
-        }
+    """Lấy thông tin chi tiết về trạng thái của AI model loader."""
+    return get_global_model_info()
 
-@app.post("/load-model", summary="Load AI Model (Manual Trigger)")
+@app.post("/load-model", summary="Tải AI Model từ Hugging Face (Manual Trigger)")
 def load_model_endpoint():
     """
-    Manually load the AI model - takes 2-3 minutes but ensures model is ready
-    Use this endpoint before making predictions to avoid lazy loading delays
+    Kích hoạt việc tải AI model và các file hỗ trợ từ Hugging Face Hub.
+    Quá trình này sẽ mất khoảng 2-5 phút và chỉ cần chạy một lần.
+    Sử dụng endpoint này trước khi dự đoán để tránh độ trễ.
     """
     import time
     import logging
     logger = logging.getLogger(__name__)
-    
-    start_time = time.time()
-    
-    try:
-        # Force model loading without fallback
-        logger.info("🚀 Manual model loading requested...")
-        
-        # Reset any previous state
-        sms_prediction_service.is_loaded = False
-        sms_prediction_service.fallback_mode = False
-        sms_prediction_service.load_attempts = 0
-        
-        # Attempt to load model
-        success = sms_prediction_service.load_model()
-        load_time = time.time() - start_time
-        
-        if success and sms_prediction_service.is_loaded:
-            # Test prediction to ensure model works
-            test_result = sms_prediction_service.predict("Test message for verification")
-            
-            return {
-                "status": "success",
-                "message": "AI model loaded and ready for predictions",
-                "load_time_seconds": round(load_time, 2),
-                "model_info": {
-                    "is_loaded": sms_prediction_service.is_loaded,
-                    "fallback_mode": sms_prediction_service.fallback_mode,
-                    "model_type": type(sms_prediction_service.model).__name__ if sms_prediction_service.model else "None",
-                    "has_tokenizer": sms_prediction_service.tokenizer is not None
-                },
-                "test_prediction": {
-                    "prediction": test_result.get("prediction"),
-                    "method": test_result.get("method", "unknown")
-                }
-            }
-        else:
-            return {
-                "status": "failed",
-                "message": "Failed to load AI model - model file may be corrupted or missing",
-                "load_time_seconds": round(load_time, 2),
-                "model_info": sms_prediction_service.get_model_info(),
-                "error": "Model loading failed, check logs for details"
-            }
-            
-    except Exception as e:
-        load_time = time.time() - start_time
-        logger.error(f"Model loading endpoint error: {str(e)}")
+
+    loader = get_model_loader()
+
+    if loader.is_loaded:
         return {
-            "status": "error",
-            "message": f"Error during model loading: {str(e)}",
-            "load_time_seconds": round(load_time, 2),
-            "model_info": {"is_loaded": False, "error": str(e)}
+            "status": "already_loaded",
+            "message": "Model đã được tải và sẵn sàng.",
+            "model_info": loader.get_model_info()
         }
 
-@app.get("/debug-model", summary="Debug Model File and Paths")
-def debug_model():
-    """Debug model file existence and paths for troubleshooting"""
-    import os
-    debug_info = {
-        "working_directory": os.getcwd(),
-        "model_paths_checked": [],
-        "files_in_app": [],
-        "environment_variables": {
-            "MODEL_PATH": os.environ.get("MODEL_PATH", "Not set"),
-            "PYTHONPATH": os.environ.get("PYTHONPATH", "Not set")
-        }
-    }
-    
-    # Check all possible model paths
-    possible_paths = [
-        "/app/phobert_sms_classifier.pkl",
-        "phobert_sms_classifier.pkl",
-        "./phobert_sms_classifier.pkl",
-        "/tmp/models/phobert_sms_classifier.pkl"
-    ]
-    
-    for path in possible_paths:
-        exists = os.path.exists(path)
-        size = 0
-        if exists:
-            try:
-                size = os.path.getsize(path)
-            except:
-                size = -1
-                
-        debug_info["model_paths_checked"].append({
-            "path": path,
-            "exists": exists,
-            "size_bytes": size,
-            "size_mb": round(size / (1024*1024), 1) if size > 0 else 0
-        })
-    
-    # List files in /app directory
+    start_time = time.time()
     try:
-        if os.path.exists("/app"):
-            files = os.listdir("/app")
-            debug_info["files_in_app"] = [f for f in files if f.endswith('.pkl')][:10]  # Limit to pkl files
+        logger.info("🚀 Yêu cầu tải model thủ công...")
+        loader.load_model()
+        load_time = time.time() - start_time
+
+        return {
+            "status": "success",
+            "message": "AI model đã được tải thành công và sẵn sàng để dự đoán.",
+            "load_time_seconds": round(load_time, 2),
+            "model_info": loader.get_model_info()
+        }
     except Exception as e:
-        debug_info["files_in_app"] = [f"Error: {str(e)}"]
-    
-    return debug_info
+        load_time = time.time() - start_time
+        logger.error(f"Lỗi tại endpoint load-model: {str(e)}", exc_info=True)
+        return {
+            "status": "error",
+            "message": f"Lỗi trong quá trình tải model: {str(e)}",
+            "load_time_seconds": round(load_time, 2),
+            "model_info": loader.get_model_info()
+        }
+
 
 def _get_model_recommendations(model_info: dict, health_check: dict) -> list:
     """Generate recommendations based on model status"""
@@ -860,67 +780,56 @@ def check_sms_scam(sms_content: str, use_ai_fallback: bool = True, db: Session =
     }
 
 
-@app.post("/predict-sms/", response_model=SMSPredictionResponse, summary="Predict SMS spam/ham using AI model")
+@app.post("/predict-sms/", response_model=SMSPredictionResponse, summary="Dự đoán SMS là spam/ham bằng AI")
 def predict_sms_spam(request: SMSPredictionRequest):
     """
-    Predict if SMS content is spam or ham using PhoBERT AI model
-    
-    IMPORTANT: Model must be loaded first using POST /load-model endpoint
-    This endpoint will NOT auto-load the model to avoid delays
-    
-    This endpoint uses a trained PhoBERT model to classify SMS messages as spam or ham.
-    It provides confidence scores and detailed prediction information.
+    Dự đoán nội dung SMS sử dụng model PhoBERT đã được huấn luyện.
+
+    QUAN TRỌNG: Model phải được tải trước bằng endpoint POST /load-model.
+    Endpoint này sẽ trả về lỗi nếu model chưa được tải.
     """
+    loader = get_model_loader()
+
+    if not loader.is_loaded:
+        return SMSPredictionResponse(
+            sms_content=request.sms_content,
+            prediction="error",
+            confidence=0.0,
+            risk_level="UNKNOWN",
+            model_info={
+                "status": "Model chưa được tải",
+                "message": "Vui lòng gọi POST /load-model trước (mất 2-5 phút)."
+            }
+        )
+
     try:
-        # Check if model is loaded - if not, return error
-        if not sms_prediction_service.is_loaded:
-            return SMSPredictionResponse(
-                sms_content=request.sms_content,
-                prediction="error",
-                confidence=0.0,
-                risk_level="UNKNOWN",
-                model_info={
-                    "status": "Model not loaded",
-                    "message": "Please call POST /load-model first and wait for completion (2-3 minutes)"
-                },
-                error="AI model not loaded. Use POST /load-model endpoint first."
-            )
-        
-        # Model is loaded, proceed with prediction (NO lazy loading)
-        prediction_result = sms_prediction_service.predict_without_lazy_loading(request.sms_content)
-        
-        # Determine risk level based on prediction and confidence
+        prediction_result = sms_prediction_service.predict(request.sms_content)
+
+        if prediction_result["prediction"] == "error":
+             raise RuntimeError(prediction_result.get("error", "Lỗi không xác định khi dự đoán"))
+
+        # Xác định mức độ rủi ro
         if prediction_result["prediction"] == "spam":
-            if prediction_result["confidence"] >= 0.8:
-                risk_level = "HIGH"
-            elif prediction_result["confidence"] >= 0.6:
-                risk_level = "MEDIUM"
-            else:
-                risk_level = "LOW"
-        else:  # ham
+            risk_level = "HIGH" if prediction_result["confidence"] >= 0.8 else "MEDIUM"
+        else:
             risk_level = "LOW"
-        
-        # Get model information
-        model_info = sms_prediction_service.get_model_info()
-        
+
         return SMSPredictionResponse(
             sms_content=request.sms_content,
             prediction=prediction_result["prediction"],
             confidence=prediction_result["confidence"],
             risk_level=risk_level,
-            model_info=model_info,
-            processed_text=prediction_result.get("processed_text", request.sms_content)
+            model_info=loader.get_model_info(),
+            processed_text=request.sms_content # Tạm thời
         )
-        
+
     except Exception as e:
-        # Return error response in case of failure
         return SMSPredictionResponse(
             sms_content=request.sms_content,
-            prediction="unknown",
+            prediction="error",
             confidence=0.0,
             risk_level="UNKNOWN",
-            model_info={"error": str(e), "is_loaded": False},
-            processed_text=request.sms_content
+            model_info={"error": str(e), "is_loaded": loader.is_loaded}
         )
 
 

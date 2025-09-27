@@ -15,3 +15,4 @@ numpy==1.24.4
 
 # Additional utilities for model handling
 requests>=2.31.0
+huggingface-hub>=0.20.0

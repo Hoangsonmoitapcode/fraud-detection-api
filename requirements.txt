@@ -27,3 +27,4 @@ numpy==1.24.4
 
 # Additional utilities
 requests>=2.31.0
+huggingface-hub>=0.20.0
