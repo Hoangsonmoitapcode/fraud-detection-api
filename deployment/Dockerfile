@@ -1,5 +1,5 @@
 # Optimized multi-stage build for GitHub Actions with Git LFS support
-FROM python:3.11-slim as builder
+FROM python:3.12-slim as builder
 
 # Install system dependencies including Git LFS
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -36,7 +36,7 @@ RUN pip install --no-cache-dir -r requirements-prod.txt
 RUN pip cache purge
 
 # Production stage - minimal base
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Install runtime dependencies including Git LFS for model files
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -59,7 +59,7 @@ WORKDIR /app
 ENV PYTHONPATH=/app
 
 # Copy only essential Python packages
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code first
