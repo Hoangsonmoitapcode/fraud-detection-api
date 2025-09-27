@@ -50,6 +50,10 @@ jobs:
         git lfs fetch --all || echo "LFS fetch failed"
         git lfs checkout || echo "LFS checkout failed"
         
+        # Additional LFS commands
+        git lfs pull origin main || echo "Pull from origin failed"
+        git lfs checkout "*.pkl" || echo "Checkout pkl files failed"
+        
         echo "Model file after LFS operations:"
         ls -la phobert_sms_classifier.pkl
         du -h phobert_sms_classifier.pkl
@@ -57,10 +61,10 @@ jobs:
         echo "Model file size: $MODEL_SIZE bytes"
         
         if [ "$MODEL_SIZE" -lt 100000000 ]; then
-          echo "⚠️ WARNING: Model file still small ($MODEL_SIZE bytes), likely Git LFS pointer"
-          echo "This is common on GitHub Actions with free plan limitations"
-          echo "App will use fallback heuristic predictions instead"
-          echo "✅ Continuing build anyway - app will handle gracefully"
+          echo "❌ ERROR: Model file still small ($MODEL_SIZE bytes), likely Git LFS pointer"
+          echo "This means Git LFS is not working properly in GitHub Actions"
+          echo "Build will fail to ensure model is available"
+          exit 1
         else
           echo "✅ SUCCESS: Model file resolved correctly ($MODEL_SIZE bytes)"
         fi

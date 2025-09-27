@@ -92,15 +92,15 @@ class SMSPredictionService:
             self.model_path = self._find_model_file()
             
             if not self.model_path:
-                logger.warning("Model file not found in any expected location")
+                logger.error("Model file not found in any expected location")
                 
                 # Try Git LFS pull if available
                 if self._attempt_git_lfs_pull():
                     self.model_path = self._find_model_file()
                 
                 if not self.model_path:
-                    logger.error("Model file still not found after Git LFS attempt")
-                    self._enable_fallback_mode()
+                    logger.error("❌ CRITICAL: Model file not found after all attempts!")
+                    logger.error("This means the AI model is not available - app cannot function properly")
                     return False
             
             # Verify file integrity
