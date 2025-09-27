@@ -93,9 +93,7 @@ USER app
 # Expose port
 EXPOSE 8000
 
-# Comprehensive health check with model verification
-HEALTHCHECK --interval=60s --timeout=30s --start-period=120s --retries=5 \
-    CMD curl -f http://localhost:8000/health || exit 1
+# No health check - handled by Railway configuration
 
-# Run the application with proper startup sequence
-CMD ["sh", "-c", "echo 'Starting Fraud Detection API...' && python -c 'from src.sms_prediction_service import sms_prediction_service; print(f\"Model loading test: {sms_prediction_service.load_model()}\")' && python -m uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --timeout-keep-alive 30"]
+# Run the application with fast startup (no model loading test)
+CMD ["sh", "-c", "python -m uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --timeout-keep-alive 30"]

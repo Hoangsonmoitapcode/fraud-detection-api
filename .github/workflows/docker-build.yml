@@ -8,6 +8,8 @@ on:
       - 'requirements.txt'
       - 'requirements-prod.txt'
       - 'Dockerfile'
+      - 'railway.json'
+      - 'README.md'
       - '.github/workflows/docker-build.yml'
   workflow_dispatch:  # Manual trigger
 
