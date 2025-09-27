@@ -66,17 +66,23 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY src/ ./src/
 COPY config/ ./config/
 
-# Copy model file and gitattributes (Git LFS already handled by GitHub Actions)
+# Setup Git LFS and pull model file
+COPY .git ./.git
 COPY .gitattributes ./
-COPY phobert_sms_classifier.pkl ./
 
-# Verify model file integrity
-RUN ls -la phobert_sms_classifier.pkl && \
-    echo "Model file size: $(du -h phobert_sms_classifier.pkl)" && \
-    if [ ! -f phobert_sms_classifier.pkl ] || [ $(stat -f%z phobert_sms_classifier.pkl 2>/dev/null || stat -c%s phobert_sms_classifier.pkl) -lt 100000000 ]; then \
-    echo "WARNING: Model file missing or too small - will use fallback mode"; \
+# Force Git LFS pull to get actual model file
+RUN git lfs install && \
+    git lfs pull && \
+    ls -la phobert_sms_classifier.pkl && \
+    echo "Model file size after LFS pull: $(du -h phobert_sms_classifier.pkl)"
+
+# Verify model file integrity  
+RUN if [ ! -f phobert_sms_classifier.pkl ] || [ $(stat -f%z phobert_sms_classifier.pkl 2>/dev/null || stat -c%s phobert_sms_classifier.pkl) -lt 100000000 ]; then \
+    echo "❌ Model file still too small after Git LFS pull"; \
+    echo "File size: $(stat -c%s phobert_sms_classifier.pkl 2>/dev/null || echo 'File not found')"; \
+    exit 1; \
     else \
-    echo "✅ Model file found and size looks good"; \
+    echo "✅ Model file loaded successfully: $(du -h phobert_sms_classifier.pkl)"; \
     fi
 
 # Set environment variables for better performance
