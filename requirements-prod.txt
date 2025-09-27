@@ -1,4 +1,3 @@
-# Production requirements - optimized for Railway with faster builds
 fastapi==0.115.13
 uvicorn[standard]==0.32.0
 sqlalchemy==2.0.25
