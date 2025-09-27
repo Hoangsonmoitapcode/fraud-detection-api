@@ -1,10 +1,12 @@
 import pickle
 import os
 import logging
-from typing import Dict, Union
+import time
+from typing import Dict, Union, Optional
 import torch
 from transformers import AutoTokenizer, AutoModel
 import numpy as np
+from pathlib import Path
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -14,65 +16,156 @@ class SMSPredictionService:
     """Service for SMS spam/ham prediction using PhoBERT model"""
     
     def __init__(self, model_path: str = "phobert_sms_classifier.pkl"):
-        self.model_path = model_path
+        # Try multiple possible model paths
+        self.possible_paths = [
+            model_path,
+            f"/app/{model_path}",
+            os.environ.get("MODEL_PATH", model_path),
+            f"/tmp/models/{model_path}",
+        ]
+        self.model_path = None
         self.model = None
         self.tokenizer = None
+        self.vectorizer = None
         self.is_loaded = False
+        self.load_attempts = 0
+        self.max_load_attempts = 3
+        self.last_load_attempt = None
+        self.fallback_mode = False
         
-    def load_model(self) -> bool:
-        """Load the PhoBERT SMS classifier model"""
+    def _find_model_file(self) -> Optional[str]:
+        """Find the model file from possible paths"""
+        for path in self.possible_paths:
+            if path and os.path.exists(path):
+                file_size = os.path.getsize(path)
+                logger.info(f"Found model at: {path} (size: {file_size / (1024*1024):.1f} MB)")
+                
+                # Check if file size is reasonable (at least 50MB for safety)
+                if file_size >= 50 * 1024 * 1024:  
+                    return path
+                else:
+                    logger.warning(f"Model file too small at {path}: {file_size} bytes")
+        
+        return None
+
+    def _attempt_git_lfs_pull(self) -> bool:
+        """Attempt to pull model file using Git LFS"""
         try:
-            # Check if model file exists
-            if not os.path.exists(self.model_path):
-                logger.error(f"Model file not found: {self.model_path}")
-                return False
+            logger.info("Attempting Git LFS pull for model file...")
+            import subprocess
+            result = subprocess.run(['git', 'lfs', 'pull'], 
+                                  capture_output=True, text=True, timeout=60)
             
-            # Verify file size first
+            if result.returncode == 0:
+                logger.info("Git LFS pull successful")
+                return True
+            else:
+                logger.warning(f"Git LFS pull failed: {result.stderr}")
+                return False
+        except Exception as e:
+            logger.warning(f"Git LFS pull failed with exception: {e}")
+            return False
+
+    def load_model(self) -> bool:
+        """Load the PhoBERT SMS classifier model with robust error handling"""
+        # Prevent too frequent reload attempts
+        current_time = time.time()
+        if (self.last_load_attempt and 
+            current_time - self.last_load_attempt < 30 and 
+            self.load_attempts >= self.max_load_attempts):
+            logger.warning("Too many recent load attempts, skipping")
+            return False
+        
+        self.load_attempts += 1
+        self.last_load_attempt = current_time
+        
+        try:
+            # Find model file
+            self.model_path = self._find_model_file()
+            
+            if not self.model_path:
+                logger.warning("Model file not found in any expected location")
+                
+                # Try Git LFS pull if available
+                if self._attempt_git_lfs_pull():
+                    self.model_path = self._find_model_file()
+                
+                if not self.model_path:
+                    logger.error("Model file still not found after Git LFS attempt")
+                    self._enable_fallback_mode()
+                    return False
+            
+            # Verify file integrity
             file_size = os.path.getsize(self.model_path)
-            logger.info(f"Model file size: {file_size / (1024*1024):.1f} MB")
+            logger.info(f"Loading model from: {self.model_path} (size: {file_size / (1024*1024):.1f} MB)")
             
-            if file_size < 100 * 1024 * 1024:  # Less than 100MB
-                logger.error(f"Model file too small ({file_size} bytes), likely corrupt or incomplete")
-                return False
-            
-            # Load the pickle model with error handling
+            # Load the pickle model with comprehensive error handling
             try:
                 with open(self.model_path, 'rb') as f:
                     model_data = pickle.load(f)
-            except (pickle.UnpicklingError, EOFError) as e:
-                logger.error(f"Pickle file corrupt: {e}")
-                logger.info("Attempting to remove corrupt file...")
-                try:
-                    os.remove(self.model_path)
-                    logger.info("Corrupt file removed")
-                except:
-                    pass
+                logger.info("Successfully loaded pickle data")
+            except (pickle.UnpicklingError, EOFError, pickle.PickleError) as e:
+                logger.error(f"Pickle file corrupt or incomplete: {e}")
+                self._handle_corrupt_file()
+                return False
+            except Exception as e:
+                logger.error(f"Unexpected error loading pickle file: {e}")
                 return False
                 
-            # Extract model components
+            # Extract model components safely
             if isinstance(model_data, dict):
                 self.model = model_data.get('model')
                 self.tokenizer = model_data.get('tokenizer')
                 self.vectorizer = model_data.get('vectorizer')
+                logger.info(f"Loaded model components: model={type(self.model).__name__}, "
+                          f"tokenizer={self.tokenizer is not None}, vectorizer={self.vectorizer is not None}")
             else:
                 # If it's just the model
                 self.model = model_data
+                logger.info(f"Loaded direct model: {type(self.model).__name__}")
+            
+            # Validate model object
+            if self.model is None:
+                logger.error("Model object is None after loading")
+                return False
                 
             # Initialize PhoBERT tokenizer if not included in pickle
             if self.tokenizer is None:
                 try:
+                    logger.info("Loading PhoBERT tokenizer from HuggingFace...")
                     self.tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base")
-                    logger.info("Loaded PhoBERT tokenizer from HuggingFace")
+                    logger.info("Successfully loaded PhoBERT tokenizer")
                 except Exception as e:
                     logger.warning(f"Could not load PhoBERT tokenizer: {e}")
                     
             self.is_loaded = True
-            logger.info(f"Successfully loaded SMS prediction model from {self.model_path}")
+            self.fallback_mode = False
+            self.load_attempts = 0  # Reset on success
+            logger.info(f"✅ Successfully loaded SMS prediction model from {self.model_path}")
             return True
             
         except Exception as e:
-            logger.error(f"Error loading model: {str(e)}")
+            logger.error(f"❌ Error loading model: {str(e)}")
+            if self.load_attempts >= self.max_load_attempts:
+                self._enable_fallback_mode()
             return False
+
+    def _handle_corrupt_file(self):
+        """Handle corrupt model file"""
+        if self.model_path and os.path.exists(self.model_path):
+            logger.info("Attempting to remove corrupt file...")
+            try:
+                backup_path = f"{self.model_path}.corrupt.{int(time.time())}"
+                os.rename(self.model_path, backup_path)
+                logger.info(f"Corrupt file moved to: {backup_path}")
+            except Exception as e:
+                logger.warning(f"Could not move corrupt file: {e}")
+
+    def _enable_fallback_mode(self):
+        """Enable fallback mode with basic text classification"""
+        logger.warning("⚠️ Enabling fallback mode - using basic heuristic classification")
+        self.fallback_mode = True
+        self.is_loaded = False
     
     def preprocess_text(self, text: str) -> str:
         """Preprocess SMS text for prediction"""
@@ -82,6 +175,45 @@ class SMSPredictionService:
         text = ' '.join(text.split())
         return text
     
+    def _fallback_prediction(self, text: str) -> Dict[str, Union[str, float]]:
+        """Simple heuristic-based spam detection as fallback"""
+        spam_keywords = [
+            'free', 'winner', 'congratulations', 'prize', 'urgent', 'act now',
+            'limited time', 'click here', 'offer expires', 'discount', '100%',
+            'cash', 'money', 'earn', 'income', 'guaranteed', 'risk free',
+            'no obligation', 'call now', 'don\'t delay', 'order now'
+        ]
+        
+        text_lower = text.lower()
+        spam_score = 0
+        
+        # Check for spam keywords
+        for keyword in spam_keywords:
+            if keyword in text_lower:
+                spam_score += 1
+        
+        # Check for suspicious patterns
+        if len([c for c in text if c.isupper()]) > len(text) * 0.3:  # Too many caps
+            spam_score += 2
+        
+        if text.count('!') > 2:  # Too many exclamation marks
+            spam_score += 1
+            
+        if any(char.isdigit() for char in text) and ('$' in text or 'đ' in text):  # Money mentions
+            spam_score += 2
+        
+        # Calculate confidence based on score
+        confidence = min(spam_score / 10.0, 0.9)  # Max 90% confidence for heuristics
+        is_spam = spam_score >= 3
+        
+        return {
+            "prediction": "spam" if is_spam else "ham",
+            "confidence": confidence if is_spam else 1 - confidence,
+            "processed_text": text,
+            "fallback_score": spam_score,
+            "method": "heuristic_fallback"
+        }
+
     def predict(self, sms_content: str) -> Dict[str, Union[str, float]]:
         """
         Predict if SMS content is spam or ham
@@ -92,13 +224,16 @@ class SMSPredictionService:
         Returns:
             Dict containing prediction result
         """
+        # Use fallback mode if enabled
+        if self.fallback_mode:
+            logger.info("Using fallback prediction method")
+            return self._fallback_prediction(sms_content)
+        
+        # Try to load model if not loaded
         if not self.is_loaded:
             if not self.load_model():
-                return {
-                    "prediction": "unknown",
-                    "confidence": 0.0,
-                    "error": "Model not loaded"
-                }
+                logger.warning("Model loading failed, using fallback")
+                return self._fallback_prediction(sms_content)
         
         try:
             # Preprocess the input text
@@ -110,7 +245,7 @@ class SMSPredictionService:
                 prediction = self.model.predict([processed_text])[0]
                 
                 # Get prediction probability if available
-                confidence = 0.5  # Default confidence
+                confidence = 0.6  # Default confidence
                 if hasattr(self.model, 'predict_proba'):
                     proba = self.model.predict_proba([processed_text])[0]
                     confidence = max(proba)
@@ -118,33 +253,37 @@ class SMSPredictionService:
             elif hasattr(self.model, '__call__'):
                 # For transformer models or callable models
                 if self.tokenizer:
-                    # Tokenize input
-                    inputs = self.tokenizer(processed_text, return_tensors="pt", 
-                                          truncation=True, max_length=256, padding=True)
-                    
-                    with torch.no_grad():
-                        outputs = self.model(**inputs)
+                    # Tokenize input with error handling
+                    try:
+                        inputs = self.tokenizer(processed_text, return_tensors="pt", 
+                                              truncation=True, max_length=256, padding=True)
                         
-                    # Get prediction from logits
-                    if hasattr(outputs, 'logits'):
-                        logits = outputs.logits
-                        probabilities = torch.softmax(logits, dim=-1)
-                        prediction = torch.argmax(probabilities, dim=-1).item()
-                        confidence = torch.max(probabilities).item()
-                    else:
-                        prediction = outputs[0] if isinstance(outputs, (list, tuple)) else outputs
-                        confidence = 0.5
+                        with torch.no_grad():
+                            outputs = self.model(**inputs)
+                            
+                        # Get prediction from logits
+                        if hasattr(outputs, 'logits'):
+                            logits = outputs.logits
+                            probabilities = torch.softmax(logits, dim=-1)
+                            prediction = torch.argmax(probabilities, dim=-1).item()
+                            confidence = torch.max(probabilities).item()
+                        else:
+                            prediction = outputs[0] if isinstance(outputs, (list, tuple)) else outputs
+                            confidence = 0.6
+                    except Exception as tokenizer_error:
+                        logger.error(f"Tokenizer error: {tokenizer_error}")
+                        return self._fallback_prediction(sms_content)
                 else:
                     # Fallback for models without tokenizer
-                    prediction = self.model([processed_text])[0]
-                    confidence = 0.5
+                    try:
+                        prediction = self.model([processed_text])[0]
+                        confidence = 0.6
+                    except Exception as model_error:
+                        logger.error(f"Model prediction error: {model_error}")
+                        return self._fallback_prediction(sms_content)
             else:
                 logger.error("Model doesn't have predict method or __call__")
-                return {
-                    "prediction": "unknown",
-                    "confidence": 0.0,
-                    "error": "Invalid model type"
-                }
+                return self._fallback_prediction(sms_content)
             
             # Convert prediction to spam/ham
             if isinstance(prediction, (int, np.integer)):
@@ -157,25 +296,59 @@ class SMSPredictionService:
             return {
                 "prediction": result,
                 "confidence": float(confidence),
-                "processed_text": processed_text
+                "processed_text": processed_text,
+                "method": "ai_model"
             }
             
         except Exception as e:
             logger.error(f"Error during prediction: {str(e)}")
-            return {
-                "prediction": "unknown",
-                "confidence": 0.0,
-                "error": str(e)
-            }
+            logger.info("Falling back to heuristic prediction")
+            return self._fallback_prediction(sms_content)
     
-    def get_model_info(self) -> Dict[str, Union[str, bool]]:
-        """Get information about the loaded model"""
-        return {
-            "model_path": self.model_path,
+    def get_model_info(self) -> Dict[str, Union[str, bool, int]]:
+        """Get comprehensive information about the model status"""
+        info = {
+            "model_path": self.model_path or "Not found",
             "is_loaded": self.is_loaded,
+            "fallback_mode": self.fallback_mode,
             "model_type": type(self.model).__name__ if self.model else "None",
-            "has_tokenizer": self.tokenizer is not None
+            "has_tokenizer": self.tokenizer is not None,
+            "has_vectorizer": self.vectorizer is not None,
+            "load_attempts": self.load_attempts,
+            "last_load_attempt": self.last_load_attempt
         }
+        
+        # Add file size if model path exists
+        if self.model_path and os.path.exists(self.model_path):
+            try:
+                file_size = os.path.getsize(self.model_path)
+                info["model_file_size_mb"] = round(file_size / (1024 * 1024), 2)
+            except:
+                info["model_file_size_mb"] = "Unknown"
+        
+        return info
+
+    def health_check(self) -> Dict[str, Union[str, bool]]:
+        """Perform a health check of the SMS prediction service"""
+        try:
+            # Test prediction
+            test_result = self.predict("Test message for health check")
+            
+            return {
+                "status": "healthy",
+                "model_loaded": self.is_loaded,
+                "fallback_mode": self.fallback_mode,
+                "test_prediction": test_result.get("prediction", "unknown"),
+                "test_confidence": test_result.get("confidence", 0.0),
+                "prediction_method": test_result.get("method", "unknown")
+            }
+        except Exception as e:
+            return {
+                "status": "unhealthy",
+                "error": str(e),
+                "model_loaded": self.is_loaded,
+                "fallback_mode": self.fallback_mode
+            }
 
 # Global instance
 sms_prediction_service = SMSPredictionService()

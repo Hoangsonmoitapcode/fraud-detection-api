@@ -127,7 +127,13 @@ documentation/
 scripts/
 setup/
 tests/
-config/
 database/
 
+# Important: Keep these files for proper operation
+!config/
+!.git/
+!.gitattributes
+!phobert_sms_classifier.pkl
+
 # Note: phobert_sms_classifier.pkl is INCLUDED for AI functionality
+# .git and .gitattributes are needed for Git LFS functionality

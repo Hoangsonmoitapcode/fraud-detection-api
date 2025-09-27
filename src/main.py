@@ -310,13 +310,13 @@ def confirm_risky_number(request: ConfirmRiskyRequest, db: Session = Depends(get
     return db_phone_number
 
 
-@app.get("/health", summary="Health Check Endpoint")
+@app.get("/health", summary="Comprehensive Health Check Endpoint")
 def health_check():
-    """Simple health check endpoint for monitoring systems"""
+    """Comprehensive health check endpoint for monitoring systems"""
     import datetime
     
-    # Simple health check without database dependency
-    return {
+    # Initialize response
+    health_status = {
         "status": "healthy",
         "timestamp": datetime.datetime.now().isoformat(),
         "checks": {
@@ -324,11 +324,84 @@ def health_check():
             "service": "running"
         }
     }
+    
+    # Check AI model status
+    try:
+        model_health = sms_prediction_service.health_check()
+        health_status["checks"]["ai_model"] = model_health["status"]
+        health_status["model_info"] = {
+            "loaded": model_health["model_loaded"],
+            "fallback_mode": model_health["fallback_mode"],
+            "prediction_method": model_health.get("prediction_method", "unknown")
+        }
+        
+        # If model is unhealthy but fallback works, mark as degraded
+        if model_health["status"] == "unhealthy" and model_health["fallback_mode"]:
+            health_status["status"] = "degraded"
+            health_status["checks"]["ai_model"] = "fallback_active"
+            
+    except Exception as e:
+        health_status["status"] = "degraded"
+        health_status["checks"]["ai_model"] = "error"
+        health_status["model_error"] = str(e)
+    
+    # Check database connectivity (optional, non-blocking)
+    try:
+        db = SessionLocal()
+        db.execute("SELECT 1")
+        health_status["checks"]["database"] = "healthy"
+        db.close()
+    except Exception as e:
+        health_status["checks"]["database"] = "unhealthy"
+        health_status["db_error"] = str(e)
+        # Don't fail health check for DB issues if it's not critical
+    
+    return health_status
 
 @app.get("/ping", summary="Simple Ping Endpoint")
 def ping():
     """Ultra-simple ping endpoint for basic connectivity"""
     return {"status": "ok", "message": "pong"}
+
+@app.get("/model-status", summary="AI Model Status and Information")
+def model_status():
+    """Get detailed information about the AI model status"""
+    try:
+        model_info = sms_prediction_service.get_model_info()
+        model_health = sms_prediction_service.health_check()
+        
+        return {
+            "model_info": model_info,
+            "health_check": model_health,
+            "recommendations": _get_model_recommendations(model_info, model_health)
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "model_info": {"is_loaded": False},
+            "health_check": {"status": "error"}
+        }
+
+def _get_model_recommendations(model_info: dict, health_check: dict) -> list:
+    """Generate recommendations based on model status"""
+    recommendations = []
+    
+    if not model_info.get("is_loaded", False):
+        recommendations.append("Model is not loaded - check if model file exists and is accessible")
+    
+    if model_info.get("fallback_mode", False):
+        recommendations.append("Using fallback mode - consider checking model file integrity")
+    
+    if model_info.get("load_attempts", 0) > 1:
+        recommendations.append("Multiple load attempts detected - model file may be corrupted")
+    
+    if health_check.get("status") == "unhealthy":
+        recommendations.append("Model health check failed - verify model compatibility and dependencies")
+    
+    if not recommendations:
+        recommendations.append("Model is operating normally")
+    
+    return recommendations
 
 
 # ============================================================================
