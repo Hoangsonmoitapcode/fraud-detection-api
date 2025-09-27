@@ -344,6 +344,85 @@ class SMSPredictionService:
         
         return info
 
+    def predict_without_lazy_loading(self, sms_content: str) -> Dict[str, Union[str, float]]:
+        """
+        Predict SMS classification WITHOUT lazy loading
+        
+        This method assumes the model is already loaded and will not attempt
+        to load it automatically. Use load_model() first or POST /load-model endpoint.
+        
+        Args:
+            sms_content: The SMS text to classify
+            
+        Returns:
+            dict: Prediction result with confidence and method
+            
+        Raises:
+            RuntimeError: If model is not loaded
+        """
+        if not self.is_loaded:
+            raise RuntimeError("Model not loaded. Call load_model() first or use POST /load-model endpoint")
+        
+        try:
+            # Preprocess the input text
+            processed_text = self.preprocess_text(sms_content)
+            
+            # Make prediction using the loaded model
+            if hasattr(self.model, 'predict'):
+                # For sklearn-like models
+                prediction = self.model.predict([processed_text])[0]
+                
+                # Get prediction probability if available
+                confidence = 0.6  # Default confidence
+                if hasattr(self.model, 'predict_proba'):
+                    proba = self.model.predict_proba([processed_text])[0]
+                    confidence = max(proba)
+                    
+            elif hasattr(self.model, '__call__'):
+                # For transformer models or callable models
+                if self.tokenizer:
+                    # Tokenize input with error handling
+                    inputs = self.tokenizer(processed_text, return_tensors="pt", 
+                                          truncation=True, max_length=256, padding=True)
+                    
+                    with torch.no_grad():
+                        outputs = self.model(**inputs)
+                        
+                    # Get prediction from logits
+                    if hasattr(outputs, 'logits'):
+                        logits = outputs.logits
+                        probabilities = torch.softmax(logits, dim=-1)
+                        prediction = torch.argmax(probabilities, dim=-1).item()
+                        confidence = torch.max(probabilities).item()
+                    else:
+                        prediction = outputs[0] if isinstance(outputs, (list, tuple)) else outputs
+                        confidence = 0.6
+                else:
+                    # Fallback for models without tokenizer
+                    prediction = self.model([processed_text])[0]
+                    confidence = 0.6
+            else:
+                raise RuntimeError("Model doesn't have predict method or __call__")
+            
+            # Convert prediction to spam/ham
+            if isinstance(prediction, (int, np.integer)):
+                result = "spam" if prediction == 1 else "ham"
+            elif isinstance(prediction, str):
+                result = prediction.lower()
+            else:
+                result = "spam" if float(prediction) > 0.5 else "ham"
+                
+            return {
+                "prediction": result,
+                "confidence": float(confidence),
+                "processed_text": processed_text,
+                "method": "ai_model"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error during prediction: {str(e)}")
+            raise RuntimeError(f"Prediction failed: {str(e)}")
+
     def health_check(self) -> Dict[str, Union[str, bool]]:
         """Perform a health check of the SMS prediction service"""
         try:

@@ -387,6 +387,66 @@ def model_status():
             "health_check": {"status": "error"}
         }
 
+@app.post("/load-model", summary="Load AI Model (Manual Trigger)")
+def load_model_endpoint():
+    """
+    Manually load the AI model - takes 2-3 minutes but ensures model is ready
+    Use this endpoint before making predictions to avoid lazy loading delays
+    """
+    import time
+    start_time = time.time()
+    
+    try:
+        # Force model loading without fallback
+        logger.info("🚀 Manual model loading requested...")
+        
+        # Reset any previous state
+        sms_prediction_service.is_loaded = False
+        sms_prediction_service.fallback_mode = False
+        sms_prediction_service.load_attempts = 0
+        
+        # Attempt to load model
+        success = sms_prediction_service.load_model()
+        load_time = time.time() - start_time
+        
+        if success and sms_prediction_service.is_loaded:
+            # Test prediction to ensure model works
+            test_result = sms_prediction_service.predict("Test message for verification")
+            
+            return {
+                "status": "success",
+                "message": "AI model loaded and ready for predictions",
+                "load_time_seconds": round(load_time, 2),
+                "model_info": {
+                    "is_loaded": sms_prediction_service.is_loaded,
+                    "fallback_mode": sms_prediction_service.fallback_mode,
+                    "model_type": type(sms_prediction_service.model).__name__ if sms_prediction_service.model else "None",
+                    "has_tokenizer": sms_prediction_service.tokenizer is not None
+                },
+                "test_prediction": {
+                    "prediction": test_result.get("prediction"),
+                    "method": test_result.get("method", "unknown")
+                }
+            }
+        else:
+            return {
+                "status": "failed",
+                "message": "Failed to load AI model - model file may be corrupted or missing",
+                "load_time_seconds": round(load_time, 2),
+                "model_info": sms_prediction_service.get_model_info(),
+                "error": "Model loading failed, check logs for details"
+            }
+            
+    except Exception as e:
+        load_time = time.time() - start_time
+        logger.error(f"Model loading endpoint error: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Error during model loading: {str(e)}",
+            "load_time_seconds": round(load_time, 2),
+            "model_info": {"is_loaded": False, "error": str(e)}
+        }
+
 @app.get("/debug-model", summary="Debug Model File and Paths")
 def debug_model():
     """Debug model file existence and paths for troubleshooting"""
@@ -802,12 +862,29 @@ def predict_sms_spam(request: SMSPredictionRequest):
     """
     Predict if SMS content is spam or ham using PhoBERT AI model
     
+    IMPORTANT: Model must be loaded first using POST /load-model endpoint
+    This endpoint will NOT auto-load the model to avoid delays
+    
     This endpoint uses a trained PhoBERT model to classify SMS messages as spam or ham.
     It provides confidence scores and detailed prediction information.
     """
     try:
-        # Get prediction from the AI model
-        prediction_result = sms_prediction_service.predict(request.sms_content)
+        # Check if model is loaded - if not, return error
+        if not sms_prediction_service.is_loaded:
+            return SMSPredictionResponse(
+                sms_content=request.sms_content,
+                prediction="error",
+                confidence=0.0,
+                risk_level="UNKNOWN",
+                model_info={
+                    "status": "Model not loaded",
+                    "message": "Please call POST /load-model first and wait for completion (2-3 minutes)"
+                },
+                error="AI model not loaded. Use POST /load-model endpoint first."
+            )
+        
+        # Model is loaded, proceed with prediction (NO lazy loading)
+        prediction_result = sms_prediction_service.predict_without_lazy_loading(request.sms_content)
         
         # Determine risk level based on prediction and confidence
         if prediction_result["prediction"] == "spam":
