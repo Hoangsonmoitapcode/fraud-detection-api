@@ -1,62 +1,33 @@
-# Optimized multi-stage build for GitHub Actions with Git LFS support
-FROM python:3.13-slim AS builder
+# --- Build Stage ---
+FROM python:3.12 AS builder
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
-    git \
-    git-lfs \
-    curl \
-    wget \
-    && git lfs install \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    build-essential libpq-dev git git-lfs curl wget \
+    && git lfs install && rm -rf /var/lib/apt/lists/* && apt-get clean
 
-# Set working directory
 WORKDIR /app
-
-# Copy requirements
-COPY requirements-prod.txt ./
+COPY requirements-prod.txt ./requirements-prod.txt
 
 # Upgrade pip
 RUN pip install --no-cache-dir --upgrade pip
 
-# Install PyTorch CPU versions first, explicitly providing the extra index URL
-RUN pip install --no-cache-dir \
-    --extra-index-url https://download.pytorch.org/whl/cpu \
-    torch==2.2.1+cpu \
-    torchvision==0.17.1+cpu \
-    torchaudio==2.2.1+cpu
-
-# Install the rest of the dependencies
+# Install dependencies
 RUN pip install --no-cache-dir -r requirements-prod.txt
 
-# Clean up pip cache
-RUN pip cache purge
-
-# --- Production stage ---
-FROM python:3.13-slim
+# --- Production Stage ---
+FROM python:3.12
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 \
-    curl \
-    git \
-    git-lfs \
-    ca-certificates \
-    && git lfs install \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    libpq5 curl git git-lfs ca-certificates \
+    && git lfs install && rm -rf /var/lib/apt/lists/* && apt-get clean
 
-# Create non-root user
 RUN useradd --create-home --shell /bin/bash app
-
-# Set working directory
 WORKDIR /app
 
 # Copy Python packages from builder stage
-COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
@@ -74,5 +45,4 @@ ENV PYTHONPATH=/app \
 RUN chown -R app:app /app
 USER app
 
-# Expose port
 EXPOSE 8000
