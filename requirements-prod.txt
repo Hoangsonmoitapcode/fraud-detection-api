@@ -1,4 +1,8 @@
 # Production requirements - optimized for Railway with faster builds
+--index-url https://download.pytorch.org/whl/cpu
+torch==2.0.1+cpu
+torchvision==0.15.2+cpu
+torchaudio==2.0.2+cpu
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 sqlalchemy>=2.0.25
