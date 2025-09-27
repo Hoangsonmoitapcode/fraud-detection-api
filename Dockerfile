@@ -94,6 +94,4 @@ USER app
 EXPOSE 8000
 
 # No health check - handled by Railway configuration
-
-# Run the application with fast startup (no model loading test)
-CMD ["sh", "-c", "python -m uvicorn src.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --timeout-keep-alive 30"]
+# No CMD - Railway will use startCommand from railway.json
