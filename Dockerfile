@@ -9,19 +9,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git-lfs \
     curl \
     wget \
+    && git lfs install \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
-
-# Configure Git LFS
-RUN git lfs install
 
 # Set working directory
 WORKDIR /app
 
 # Copy requirements and install Python dependencies with error handling
-COPY requirements-prod.txt requirements.txt
+COPY requirements-prod.txt ./
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -r requirements-prod.txt && \
     pip cache purge
 
 # Production stage - minimal base
@@ -34,9 +32,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     git-lfs \
     ca-certificates \
+    && git lfs install \
     && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean \
-    && git lfs install
+    && apt-get clean
 
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash app
