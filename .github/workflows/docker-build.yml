@@ -29,44 +29,24 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        lfs: false  # Don't auto-pull LFS, we'll do it manually
-        fetch-depth: 0  # Full history for better Git LFS support
+        fetch-depth: 0  # Full history
     
-    - name: Setup Git LFS and force pull model file
+    - name: Verify model file (no LFS needed)
       run: |
-        echo "Installing Git LFS..."
-        git lfs install
-        
-        echo "Checking LFS tracked files..."
-        git lfs ls-files
-        
-        echo "Current model file (should be pointer):"
-        ls -la phobert_sms_classifier.pkl
-        head -n 5 phobert_sms_classifier.pkl
-        
-        echo "Force pulling LFS files with multiple attempts..."
-        # Try multiple methods to get LFS file
-        git lfs pull --include="*.pkl" || echo "First pull attempt failed"
-        git lfs fetch --all || echo "LFS fetch failed"
-        git lfs checkout || echo "LFS checkout failed"
-        
-        # Additional LFS commands
-        git lfs pull origin main || echo "Pull from origin failed"
-        git lfs checkout "*.pkl" || echo "Checkout pkl files failed"
-        
-        echo "Model file after LFS operations:"
+        echo "Checking model file (uploaded directly, no LFS)..."
         ls -la phobert_sms_classifier.pkl
         du -h phobert_sms_classifier.pkl
         MODEL_SIZE=$(stat -c%s phobert_sms_classifier.pkl)
         echo "Model file size: $MODEL_SIZE bytes"
         
         if [ "$MODEL_SIZE" -lt 100000000 ]; then
-          echo "❌ ERROR: Model file still small ($MODEL_SIZE bytes), likely Git LFS pointer"
-          echo "This means Git LFS is not working properly in GitHub Actions"
+          echo "❌ ERROR: Model file too small ($MODEL_SIZE bytes)"
+          echo "This means model file was not uploaded correctly"
           echo "Build will fail to ensure model is available"
           exit 1
         else
-          echo "✅ SUCCESS: Model file resolved correctly ($MODEL_SIZE bytes)"
+          echo "✅ SUCCESS: Model file uploaded correctly ($MODEL_SIZE bytes)"
+          echo "✅ AI model will be available in the app"
         fi
 
     - name: Set up Docker Buildx

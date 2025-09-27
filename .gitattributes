@@ -1,1 +1,2 @@
-*.pkl filter=lfs diff=lfs merge=lfs -text
+# No Git LFS - upload model file directly
+# *.pkl filter=lfs diff=lfs merge=lfs -text
