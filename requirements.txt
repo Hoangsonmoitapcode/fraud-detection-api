@@ -14,9 +14,10 @@ pydantic>=2.5.0
 psutil>=5.9.0
 
 # AI/ML - CPU optimized versions for development
-torch==2.1.0+cpu --index-url https://download.pytorch.org/whl/cpu
-torchvision==0.16.0+cpu --index-url https://download.pytorch.org/whl/cpu
-torchaudio==2.1.0+cpu --index-url https://download.pytorch.org/whl/cpu
+# Install with: pip install torch==2.1.0+cpu torchvision==0.16.0+cpu torchaudio==2.1.0+cpu --index-url https://download.pytorch.org/whl/cpu
+torch==2.1.0
+torchvision==0.16.0
+torchaudio==2.1.0
 
 # NLP and ML utilities
 transformers==4.35.2
