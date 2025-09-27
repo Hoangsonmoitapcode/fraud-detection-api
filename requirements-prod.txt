@@ -1,6 +1,6 @@
 # Production requirements
 fastapi==0.115.13
-uvicorn[standard]==0.37.0
+uvicorn[standard]>=0.32.0
 sqlalchemy==2.0.25
 psycopg2-binary>=2.9.9
 alembic>=1.12.1
