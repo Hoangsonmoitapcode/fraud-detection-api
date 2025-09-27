@@ -190,14 +190,19 @@ class SMSPredictionService:
             'free', 'winner', 'congratulations', 'prize', 'urgent', 'act now',
             'limited time', 'click here', 'offer expires', 'discount', '100%',
             'cash', 'money', 'earn', 'income', 'guaranteed', 'risk free',
-            'no obligation', 'call now', 'don\'t delay', 'order now',
+            'no obligation', 'call now', 'don\'t delay', 'order now', 'claim',
+            'bonus', 'reward', 'credit', 'loan', 'debt', 'investment',
             
-            # Vietnamese keywords - common spam patterns
+            # Vietnamese keywords - enhanced spam patterns
             'chúc mừng', 'trúng thưởng', 'miễn phí', 'quà tặng', 'khuyến mãi',
             'giảm giá', 'click', 'nhấn link', 'liên hệ ngay', 'cơ hội duy nhất',
             'triệu đồng', 'tỷ đồng', 'thưởng lớn', 'may mắn', 'trúng số',
             'vay tiền', 'vay vốn', 'tín dụng', 'thẻ visa', 'bitcoin',
-            'đầu tư', 'kiếm tiền', 'làm giàu', 'thu nhập', 'lợi nhuận'
+            'đầu tư', 'kiếm tiền', 'làm giàu', 'thu nhập', 'lợi nhuận',
+            'ưu đãi', 'voucher', 'sale', 'rút tiền', 'chuyển khoản',
+            'ngân hàng', 'atm', 'forex', 'crypto', '10000', '1000000',
+            'triệu', 'tỷ', 'gọi ngay', 'bấm', 'nhấn', 'truy cập',
+            'xổ số', 'cá cược', 'casino', 'lucky', 'win', 'won'
         ]
         
         text_lower = text.lower()

@@ -394,6 +394,9 @@ def load_model_endpoint():
     Use this endpoint before making predictions to avoid lazy loading delays
     """
     import time
+    import logging
+    logger = logging.getLogger(__name__)
+    
     start_time = time.time()
     
     try:
