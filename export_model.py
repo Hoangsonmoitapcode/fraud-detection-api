@@ -23,8 +23,9 @@ class PhoBERTSMSClassifier(nn.Module):
         self.dropout = nn.Dropout(0.3)
         self.classifier = nn.Linear(self.phobert.config.hidden_size, num_classes)
         
-    def forward(self, input_ids, attention_mask=None):
+    def forward(self, input_ids, attention_mask=None, **kwargs):
         """Forward pass"""
+        # Only use input_ids and attention_mask, ignore other kwargs
         outputs = self.phobert(input_ids=input_ids, attention_mask=attention_mask)
         pooled_output = outputs.pooler_output
         pooled_output = self.dropout(pooled_output)

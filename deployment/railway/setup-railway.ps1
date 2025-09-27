@@ -30,7 +30,7 @@ Write-Host "`n5️⃣ Cấu hình Deploy Settings:" -ForegroundColor Cyan
 Write-Host "   Vào Settings → Deploy:" -ForegroundColor White
 Write-Host "   - Build Command: (để trống)" -ForegroundColor Green
 Write-Host "   - Start Command: (để trống)" -ForegroundColor Green
-Write-Host "   - Dockerfile Path: Dockerfile" -ForegroundColor Green
+Write-Host "   - Dockerfile Path: deployment/Dockerfile" -ForegroundColor Green
 
 Write-Host "`n🔗 URLs sau khi deploy:" -ForegroundColor Yellow
 Write-Host "   - API: https://your-service-name.up.railway.app" -ForegroundColor White

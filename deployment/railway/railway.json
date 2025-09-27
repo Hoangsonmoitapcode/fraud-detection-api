@@ -1,11 +1,11 @@
 {
   "build": {
-    "dockerfilePath": "Dockerfile",
+    "dockerfilePath": "deployment/Dockerfile",
     "buildCommand": "echo 'Building with Git LFS support...'",
     "watchPatterns": [
       "src/**",
       "requirements-prod.txt",
-      "Dockerfile"
+      "deployment/Dockerfile"
     ]
   },
   "deploy": {

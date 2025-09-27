@@ -18,8 +18,10 @@ class SMSPredictionService:
     def __init__(self, model_path: str = "phobert_sms_classifier.pkl"):
         # Try multiple possible model paths - Railway specific
         self.possible_paths = [
-            "/app/phobert_sms_classifier.pkl",  # Primary path for Railway
-            "phobert_sms_classifier.pkl",       # Local development
+            "models/trained/phobert_sms_classifier.pkl",  # New trained model
+            "models/exports/phobert_sms_classifier.pkl",  # Exported model
+            "/app/phobert_sms_classifier.pkl",            # Primary path for Railway
+            "phobert_sms_classifier.pkl",                 # Local development
             os.environ.get("MODEL_PATH", "/app/phobert_sms_classifier.pkl"),
             model_path,
             f"/app/{model_path}",
@@ -269,7 +271,7 @@ class SMSPredictionService:
             processed_text = self.preprocess_text(sms_content)
             
             # Make prediction using the loaded model
-            if hasattr(self.model, 'predict'):
+            if hasattr(self.model, 'predict') and not hasattr(self.model, 'forward'):
                 # For sklearn-like models
                 prediction = self.model.predict([processed_text])[0]
                 
@@ -279,16 +281,21 @@ class SMSPredictionService:
                     proba = self.model.predict_proba([processed_text])[0]
                     confidence = max(proba)
                     
-            elif hasattr(self.model, '__call__'):
-                # For transformer models or callable models
+            elif hasattr(self.model, 'forward') or hasattr(self.model, '__call__'):
+                # For transformer models (PhoBERT)
                 if self.tokenizer:
                     # Tokenize input with error handling
                     try:
                         inputs = self.tokenizer(processed_text, return_tensors="pt", 
-                                              truncation=True, max_length=256, padding=True)
+                                              truncation=True, max_length=256, padding=True,
+                                              add_special_tokens=True)
                         
                         with torch.no_grad():
-                            outputs = self.model(**inputs)
+                            # Use forward method for PhoBERT
+                            if hasattr(self.model, 'forward'):
+                                outputs = self.model.forward(input_ids=inputs['input_ids'], attention_mask=inputs['attention_mask'])
+                            else:
+                                outputs = self.model(input_ids=inputs['input_ids'], attention_mask=inputs['attention_mask'])
                             
                         # Get prediction from logits
                         if hasattr(outputs, 'logits'):
@@ -297,8 +304,10 @@ class SMSPredictionService:
                             prediction = torch.argmax(probabilities, dim=-1).item()
                             confidence = torch.max(probabilities).item()
                         else:
-                            prediction = outputs[0] if isinstance(outputs, (list, tuple)) else outputs
-                            confidence = 0.6
+                            # For custom models that return logits directly
+                            probabilities = torch.softmax(outputs, dim=-1)
+                            prediction = torch.argmax(probabilities, dim=-1).item()
+                            confidence = torch.max(probabilities).item()
                     except Exception as tokenizer_error:
                         logger.error(f"Tokenizer error: {tokenizer_error}")
                         return self._fallback_prediction(sms_content)
@@ -399,7 +408,7 @@ class SMSPredictionService:
                                           truncation=True, max_length=256, padding=True)
                     
                     with torch.no_grad():
-                        outputs = self.model(**inputs)
+                        outputs = self.model(input_ids=inputs['input_ids'], attention_mask=inputs['attention_mask'])
                         
                     # Get prediction from logits
                     if hasattr(outputs, 'logits'):
@@ -408,8 +417,10 @@ class SMSPredictionService:
                         prediction = torch.argmax(probabilities, dim=-1).item()
                         confidence = torch.max(probabilities).item()
                     else:
-                        prediction = outputs[0] if isinstance(outputs, (list, tuple)) else outputs
-                        confidence = 0.6
+                        # For custom models that return logits directly
+                        probabilities = torch.softmax(outputs, dim=-1)
+                        prediction = torch.argmax(probabilities, dim=-1).item()
+                        confidence = torch.max(probabilities).item()
                 else:
                     # Fallback for models without tokenizer
                     prediction = self.model([processed_text])[0]
