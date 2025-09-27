@@ -16,11 +16,12 @@ class SMSPredictionService:
     """Service for SMS spam/ham prediction using PhoBERT model"""
     
     def __init__(self, model_path: str = "phobert_sms_classifier.pkl"):
-        # Try multiple possible model paths
+        # Try multiple possible model paths - Railway specific
         self.possible_paths = [
+            "/app/phobert_sms_classifier.pkl",  # Primary path for Railway
+            os.environ.get("MODEL_PATH", "/app/phobert_sms_classifier.pkl"),
             model_path,
             f"/app/{model_path}",
-            os.environ.get("MODEL_PATH", model_path),
             f"/tmp/models/{model_path}",
         ]
         self.model_path = None
@@ -35,17 +36,24 @@ class SMSPredictionService:
         
     def _find_model_file(self) -> Optional[str]:
         """Find the model file from possible paths"""
-        for path in self.possible_paths:
+        logger.info("🔍 Searching for model file in possible paths...")
+        
+        for i, path in enumerate(self.possible_paths):
+            logger.info(f"  Path {i+1}: {path}")
             if path and os.path.exists(path):
                 file_size = os.path.getsize(path)
-                logger.info(f"Found model at: {path} (size: {file_size / (1024*1024):.1f} MB)")
+                logger.info(f"✅ Found model at: {path} (size: {file_size / (1024*1024):.1f} MB)")
                 
                 # Check if file size is reasonable (at least 50MB for safety)
                 if file_size >= 50 * 1024 * 1024:  
+                    logger.info(f"✅ Model file size OK: {file_size} bytes")
                     return path
                 else:
-                    logger.warning(f"Model file too small at {path}: {file_size} bytes")
+                    logger.warning(f"❌ Model file too small at {path}: {file_size} bytes")
+            else:
+                logger.info(f"❌ Path not found: {path}")
         
+        logger.error("❌ No valid model file found in any path!")
         return None
 
     def _attempt_git_lfs_pull(self) -> bool:

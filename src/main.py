@@ -387,6 +387,54 @@ def model_status():
             "health_check": {"status": "error"}
         }
 
+@app.get("/debug-model", summary="Debug Model File and Paths")
+def debug_model():
+    """Debug model file existence and paths for troubleshooting"""
+    import os
+    debug_info = {
+        "working_directory": os.getcwd(),
+        "model_paths_checked": [],
+        "files_in_app": [],
+        "environment_variables": {
+            "MODEL_PATH": os.environ.get("MODEL_PATH", "Not set"),
+            "PYTHONPATH": os.environ.get("PYTHONPATH", "Not set")
+        }
+    }
+    
+    # Check all possible model paths
+    possible_paths = [
+        "/app/phobert_sms_classifier.pkl",
+        "phobert_sms_classifier.pkl",
+        "./phobert_sms_classifier.pkl",
+        "/tmp/models/phobert_sms_classifier.pkl"
+    ]
+    
+    for path in possible_paths:
+        exists = os.path.exists(path)
+        size = 0
+        if exists:
+            try:
+                size = os.path.getsize(path)
+            except:
+                size = -1
+                
+        debug_info["model_paths_checked"].append({
+            "path": path,
+            "exists": exists,
+            "size_bytes": size,
+            "size_mb": round(size / (1024*1024), 1) if size > 0 else 0
+        })
+    
+    # List files in /app directory
+    try:
+        if os.path.exists("/app"):
+            files = os.listdir("/app")
+            debug_info["files_in_app"] = [f for f in files if f.endswith('.pkl')][:10]  # Limit to pkl files
+    except Exception as e:
+        debug_info["files_in_app"] = [f"Error: {str(e)}"]
+    
+    return debug_info
+
 def _get_model_recommendations(model_info: dict, health_check: dict) -> list:
     """Generate recommendations based on model status"""
     recommendations = []
