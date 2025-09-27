@@ -48,14 +48,8 @@ try:
 except Exception as e:
     print(f"⚠️ Startup warning: {e}")
 
-# Test model loading
-print("🤖 Testing AI model loading...")
-try:
-    test_prediction = sms_prediction_service.predict("Test message")
-    print(f"✅ AI model loaded successfully: {test_prediction['prediction']}")
-except Exception as e:
-    print(f"⚠️ AI model loading warning: {e}")
-
+# Test model loading (non-blocking)
+print("🤖 AI model will be loaded on first use...")
 print("🎉 Application startup completed!")
 
 # Dependency to get database session
@@ -362,6 +356,17 @@ def health_check():
 def ping():
     """Ultra-simple ping endpoint for basic connectivity"""
     return {"status": "ok", "message": "pong"}
+
+@app.get("/simple-health", summary="Ultra Simple Health Check")
+def simple_health():
+    """Ultra-simple health check for Railway - no dependencies"""
+    import datetime
+    return {
+        "status": "healthy",
+        "timestamp": datetime.datetime.now().isoformat(),
+        "service": "fraud-detection-api",
+        "version": "1.0.0"
+    }
 
 @app.get("/model-status", summary="AI Model Status and Information")
 def model_status():
