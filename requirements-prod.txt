@@ -12,13 +12,9 @@ psycopg2-binary>=2.9.9
 alembic==1.12.1
 pydantic>=2.5.0
 psutil>=5.9.0
-
-# NLP and ML utilities
 transformers==4.30.2
 tokenizers==0.13.3
 scikit-learn==1.3.2
 numpy==1.24.4
-
-# Additional utilities for model handling
 requests>=2.31.0
 huggingface-hub>=0.20.0

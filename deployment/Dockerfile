@@ -19,17 +19,10 @@ WORKDIR /app
 # Copy requirements and install Python dependencies with error handling
 COPY requirements-prod.txt ./
 
-# Upgrade pip and install build tools
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+# Upgrade pip
+RUN pip install --no-cache-dir --upgrade pip
 
-# Install PyTorch CPU versions with specific index URL (using stable versions)
-RUN pip install --no-cache-dir \
-    --index-url https://download.pytorch.org/whl/cpu \
-    torch==2.0.1+cpu \
-    torchvision==0.15.2+cpu \
-    torchaudio==2.0.2+cpu
-
-# Install remaining dependencies
+# Install all dependencies from the single requirements file
 RUN pip install --no-cache-dir -r requirements-prod.txt
 
 # Clean up pip cache
