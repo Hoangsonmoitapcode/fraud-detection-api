@@ -1,8 +1,8 @@
 # AI/ML - CPU optimized versions for development
 --index-url https://download.pytorch.org/whl/cpu
-torch==2.7.1+cpu
-torchvision==0.18.1+cpu 
-torchaudio==2.3.1+cpu
+torch==2.8.0+cpu
+torchvision==0.23.0+cpu
+torchaudio==2.8.0+cpu
 
 # Core web framework
 fastapi==0.104.1
