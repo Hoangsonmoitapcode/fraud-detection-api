@@ -78,15 +78,16 @@ jobs:
         curl -fsSL https://railway.app/install.sh | sh
         railway --version
 
-    - name: Login to Railway
+    - name: Deploy to Railway
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       run: |
-        railway login --apiKey $RAILWAY_TOKEN
-
-    - name: Deploy to Railway
-      run: |
-        railway up --detach
+        # Link to a specific project and service for reliability
+        railway link ${{ secrets.RAILWAY_PROJECT_ID }} ${{ secrets.RAILWAY_SERVICE_ID }}
+        
+        # Deploy the linked service
+        # The --service flag ensures we deploy to the correct service
+        railway up --detach --service ${{ secrets.RAILWAY_SERVICE_ID }}
 
     - name: Build summary
       run: |
