@@ -1,3 +1,6 @@
+import asyncio
+import time
+from sqlalchemy import text
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -50,18 +53,6 @@ try:
 except Exception as e:
     print(f"⚠️ Startup warning: {e}")
 
-# Test model loading (non-blocking)
-print("🤖 AI model will be loaded on first use...")
-print("🎉 Application startup completed!")
-
-# Dependency to get database session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 app = FastAPI(
     title="Fraud Detection API",
     description="Comprehensive fraud detection API for phone numbers, SMS, banking accounts, and websites",
@@ -76,6 +67,38 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup_event():
+    """Optimized startup event for Railway deployment"""
+    print("🚀 Starting optimized fraud detection API...")
+    
+    # Test database connection (non-blocking)
+    try:
+        from .database import test_connection
+        test_connection()
+    except Exception as e:
+        print(f"⚠️ Database connection warning: {e}")
+    
+    # Initialize model loader (without loading model)
+    try:
+        from .model_loader import get_model_loader
+        loader = get_model_loader()
+        print(f"🤖 Model loader initialized: {loader.model_name}")
+        print("💡 Model will be loaded on first /load-model call")
+    except Exception as e:
+        print(f"⚠️ Model loader initialization warning: {e}")
+    
+    print("✅ Startup completed - API ready!")
+
+# Dependency to get database session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 
 # Root endpoint
 @app.get("/", summary="API Status")
@@ -344,7 +367,7 @@ def health_check():
     # Check database connectivity (optional, non-blocking)
     try:
         db = SessionLocal()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         health_status["checks"]["database"] = "healthy"
         db.close()
     except Exception as e:
@@ -375,69 +398,61 @@ def model_status():
     """Lấy thông tin chi tiết về trạng thái của AI model loader."""
     return get_global_model_info()
 
-@app.post("/load-model", summary="Tải AI Model từ Hugging Face (Manual Trigger)")
-def load_model_endpoint():
+@app.post("/load-model", summary="Load PhoBERT Model (Manual Trigger)")
+async def load_model_endpoint():
     """
-    Kích hoạt việc tải AI model và các file hỗ trợ từ Hugging Face Hub.
-    Quá trình này sẽ mất khoảng 2-5 phút và chỉ cần chạy một lần.
-    Sử dụng endpoint này trước khi dự đoán để tránh độ trễ.
+    Load Vietnamese fraud detection model from Hugging Face.
+    This process takes 2-5 minutes but only needs to run once.
+    Model will be cached in memory for fast predictions.
     """
+    import asyncio
     import time
-    import logging
-    logger = logging.getLogger(__name__)
-
+    
     loader = get_model_loader()
-
+    
     if loader.is_loaded:
         return {
             "status": "already_loaded",
-            "message": "Model đã được tải và sẵn sàng.",
-            "model_info": loader.get_model_info()
+            "message": "Model is already loaded and ready",
+            "model_info": loader.get_model_info(),
+            "health_check": loader.health_check()
         }
-
-    start_time = time.time()
+    
+    # Run model loading in background to avoid timeout
     try:
-        logger.info("🚀 Yêu cầu tải model thủ công...")
-        loader.load_model()
+        # Use asyncio to prevent blocking
+        loop = asyncio.get_event_loop()
+        start_time = time.time()
+        
+        print("🚀 Starting model loading process...")
+        await loop.run_in_executor(None, loader.load_model)
+        
         load_time = time.time() - start_time
-
+        
         return {
             "status": "success",
-            "message": "AI model đã được tải thành công và sẵn sàng để dự đoán.",
+            "message": "Model loaded successfully and ready for predictions",
             "load_time_seconds": round(load_time, 2),
-            "model_info": loader.get_model_info()
+            "model_info": loader.get_model_info(),
+            "health_check": loader.health_check(),
+            "memory_usage": f"~{loader._estimate_model_size():.1f}MB"
         }
+        
     except Exception as e:
-        load_time = time.time() - start_time
-        logger.error(f"Lỗi tại endpoint load-model: {str(e)}", exc_info=True)
+        load_time = time.time() - start_time if 'start_time' in locals() else 0
+        
         return {
             "status": "error",
-            "message": f"Lỗi trong quá trình tải model: {str(e)}",
+            "message": f"Failed to load model: {str(e)}",
             "load_time_seconds": round(load_time, 2),
-            "model_info": loader.get_model_info()
+            "error_details": str(e),
+            "suggestions": [
+                "Check if HF_TOKEN is valid",
+                "Verify model exists at hoangson2006/vietnamese-fraud-detection", 
+                "Ensure sufficient memory (>1GB available)",
+                "Try again after a few minutes"
+            ]
         }
-
-
-def _get_model_recommendations(model_info: dict, health_check: dict) -> list:
-    """Generate recommendations based on model status"""
-    recommendations = []
-    
-    if not model_info.get("is_loaded", False):
-        recommendations.append("Model is not loaded - check if model file exists and is accessible")
-    
-    if model_info.get("fallback_mode", False):
-        recommendations.append("Using fallback mode - consider checking model file integrity")
-    
-    if model_info.get("load_attempts", 0) > 1:
-        recommendations.append("Multiple load attempts detected - model file may be corrupted")
-    
-    if health_check.get("status") == "unhealthy":
-        recommendations.append("Model health check failed - verify model compatibility and dependencies")
-    
-    if not recommendations:
-        recommendations.append("Model is operating normally")
-    
-    return recommendations
 
 
 # ============================================================================
@@ -780,16 +795,14 @@ def check_sms_scam(sms_content: str, use_ai_fallback: bool = True, db: Session =
     }
 
 
-@app.post("/predict-sms/", response_model=SMSPredictionResponse, summary="Dự đoán SMS là spam/ham bằng AI")
-def predict_sms_spam(request: SMSPredictionRequest):
+@app.post("/predict-sms/", response_model=SMSPredictionResponse, summary="Predict SMS spam/ham using PhoBERT")
+async def predict_sms_spam(request: SMSPredictionRequest):
     """
-    Dự đoán nội dung SMS sử dụng model PhoBERT đã được huấn luyện.
-
-    QUAN TRỌNG: Model phải được tải trước bằng endpoint POST /load-model.
-    Endpoint này sẽ trả về lỗi nếu model chưa được tải.
+    Predict SMS spam/ham using PhoBERT model.
+    Model must be loaded first via POST /load-model.
     """
     loader = get_model_loader()
-
+    
     if not loader.is_loaded:
         return SMSPredictionResponse(
             sms_content=request.sms_content,
@@ -797,41 +810,57 @@ def predict_sms_spam(request: SMSPredictionRequest):
             confidence=0.0,
             risk_level="UNKNOWN",
             model_info={
-                "status": "Model chưa được tải",
-                "message": "Vui lòng gọi POST /load-model trước (mất 2-5 phút)."
+                "status": "Model not loaded",
+                "message": "Please call POST /load-model first (takes 2-5 minutes)",
+                "load_attempts": loader.load_attempts
             }
         )
-
+    
     try:
-        prediction_result = sms_prediction_service.predict(request.sms_content)
-
-        if prediction_result["prediction"] == "error":
-             raise RuntimeError(prediction_result.get("error", "Lỗi không xác định khi dự đoán"))
-
-        # Xác định mức độ rủi ro
-        if prediction_result["prediction"] == "spam":
-            risk_level = "HIGH" if prediction_result["confidence"] >= 0.8 else "MEDIUM"
+        # Use the optimized single prediction method
+        result = loader.predict_single(request.sms_content)
+        
+        if result["prediction"] == "error":
+            return SMSPredictionResponse(
+                sms_content=request.sms_content,
+                prediction="error", 
+                confidence=0.0,
+                risk_level="UNKNOWN",
+                model_info={"error": result.get("error", "Unknown prediction error")}
+            )
+        
+        # Determine risk level based on prediction and confidence
+        if result["prediction"] == "spam":
+            if result["confidence"] >= 0.8:
+                risk_level = "HIGH"
+            elif result["confidence"] >= 0.6:
+                risk_level = "MEDIUM" 
+            else:
+                risk_level = "LOW"
         else:
             risk_level = "LOW"
-
+        
         return SMSPredictionResponse(
             sms_content=request.sms_content,
-            prediction=prediction_result["prediction"],
-            confidence=prediction_result["confidence"],
+            prediction=result["prediction"],
+            confidence=result["confidence"],
             risk_level=risk_level,
             model_info=loader.get_model_info(),
-            processed_text=request.sms_content # Tạm thời
+            processed_text=request.sms_content
         )
-
+        
     except Exception as e:
         return SMSPredictionResponse(
             sms_content=request.sms_content,
             prediction="error",
             confidence=0.0,
             risk_level="UNKNOWN",
-            model_info={"error": str(e), "is_loaded": loader.is_loaded}
+            model_info={
+                "error": str(e),
+                "is_loaded": loader.is_loaded,
+                "suggestion": "Try reloading the model with POST /load-model"
+            }
         )
-
 
 # ============================================================================
 # ADMIN ENDPOINTS (for Railway database setup)

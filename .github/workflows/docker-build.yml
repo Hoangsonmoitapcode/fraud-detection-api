@@ -73,24 +73,68 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           no-cache: false
-          shm-size: 2gb
+          shm-size: 2gb  # Required for PhoBERT (518MB) + pre-cached model in image
+          build-args: |
+            HF_TOKEN=${{ secrets.HF_TOKEN }}
 
-      # --- CD ---
+      # --- Railway Deployment ---
       - name: Install Railway CLI
         run: |
           curl -fsSL https://railway.app/install.sh | sh
+          echo "$HOME/.railway/bin" >> $GITHUB_PATH
+
+      - name: Verify Railway CLI installation
+        run: |
           railway --version
 
-      - name: Deploy to Railway
+      - name: Login and deploy to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
         run: |
-          railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --yes --detach
+          # Login với project token
+          echo "🔐 Logging into Railway..."
+          railway login --token $RAILWAY_TOKEN
+          
+          # Link project
+          echo "🔗 Linking to Railway project..."
+          railway link --project $RAILWAY_PROJECT_ID
+          
+          # Deploy to specific service
+          echo "🚀 Deploying to Railway service..."
+          railway up --service $RAILWAY_SERVICE_ID --yes --detach
+          
+          echo "✅ Railway deployment completed successfully!"
+
+      # --- Post-deployment verification ---
+      - name: Get deployment status
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+        run: |
+          echo "📊 Getting deployment status..."
+          railway status --service $RAILWAY_SERVICE_ID || echo "Status command not available"
 
       # --- Summary ---
       - name: Build summary
         run: |
-          echo "## ✅ CI/CD Pipeline Finished" >> $GITHUB_STEP_SUMMARY
-          echo "- Tests: Passed/Skipped" >> $GITHUB_STEP_SUMMARY
-          echo "- Image: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Deployment: Railway" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ CI/CD Pipeline Completed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔨 Build Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository:** \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🐳 Docker Image" >> $GITHUB_STEP_SUMMARY
+          echo "- **Registry:** \`${{ env.REGISTRY }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚂 Railway Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "- **Project ID:** \`${{ secrets.RAILWAY_PROJECT_ID }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service ID:** \`${{ secrets.RAILWAY_SERVICE_ID }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ✅ Deployed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Quick Links" >> $GITHUB_STEP_SUMMARY
+          echo "- [Railway Dashboard](https://railway.app/project/${{ secrets.RAILWAY_PROJECT_ID }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Service Logs](https://railway.app/project/${{ secrets.RAILWAY_PROJECT_ID }}/service/${{ secrets.RAILWAY_SERVICE_ID }})" >> $GITHUB_STEP_SUMMARY
