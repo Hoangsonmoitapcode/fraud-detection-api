@@ -1,58 +1,54 @@
-# --- Giai đoạn 1: Builder (Xưởng chế tạo) ---
-# Sử dụng Python 3.12-slim để build, giúp giảm dung lượng cache và build nhanh hơn
+# --- Giai đoạn 1: Builder (multi-stage để giảm size) ---
 FROM python:3.12-slim AS builder
 
-# Cài các công cụ cần thiết để build thư viện
+# Cài các công cụ cần thiết để build
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Sao chép các file requirements
+# Sao chép file requirements
 COPY requirements.txt ./
-COPY requirements-prod.txt ./
 
 # Nâng cấp pip
 RUN pip install --no-cache-dir --upgrade pip
 
-# Cài đặt TẤT CẢ các thư viện vào một môi trường ảo tạm thời
-# Bước này sẽ sử dụng file requirements.txt (có PyTorch) để cài đặt
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir -r requirements.txt
+# Cài các package trực tiếp (CPU-only PyTorch)
+RUN pip install --no-cache-dir \
+    torch==2.8.0+cpu \
+    torchvision==0.23.0+cpu \
+    torchaudio==2.8.0+cpu \
+    && pip install --no-cache-dir -r requirements.txt
 
-
-# --- Giai đoạn 2: Production (Image cuối cùng, gọn nhẹ) ---
-# Bắt đầu từ một image slim sạch sẽ
+# --- Giai đoạn 2: Production ---
 FROM python:3.12-slim
 
-# Cài các gói hệ điều hành tối thiểu cần thiết để CHẠY ứng dụng
+# Cài các gói hệ điều hành tối thiểu để chạy app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-# Tạo user không phải root để tăng bảo mật
+# Tạo user không phải root
 RUN useradd --create-home --shell /bin/bash app
+
 WORKDIR /app
 
-# *** Bước quan trọng nhất: Sao chép các gói đã cài từ builder ***
-# Chỉ sao chép các thư viện đã được cài, không cần cài lại từ đầu
-COPY --from=builder /opt/venv /opt/venv
+# Sao chép site-packages từ builder sang (không cần venv)
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Sao chép code ứng dụng
 COPY src/ ./src/
 COPY config/ ./config/
 
-# Kích hoạt môi trường ảo và đặt các biến môi trường khác
-ENV VIRTUAL_ENV=/opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Biến môi trường cần thiết
 ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     TOKENIZERS_PARALLELISM=false
 
-# Chuyển quyền và sử dụng user mới
+# Chuyển quyền và dùng user mới
 RUN chown -R app:app /app
 USER app
 
