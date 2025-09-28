@@ -16,9 +16,9 @@ RUN pip install --no-cache-dir --upgrade pip
 
 # Cài các package trực tiếp (CPU-only PyTorch)
 RUN pip install --no-cache-dir \
-    torch==2.8.0+cpu \
-    torchvision==0.23.0+cpu \
-    torchaudio==2.8.0+cpu \
+    torch>=2.5.0+cpu \
+    torchvision>=0.20.0+cpu \
+    torchaudio>=2.6.0+cpu \
     && pip install --no-cache-dir -r requirements.txt
 
 # --- Giai đoạn 2: Production ---
