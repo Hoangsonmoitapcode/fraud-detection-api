@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build and Deploy Docker Image to Railway
 
 on:
   push:
@@ -7,20 +7,19 @@ on:
       - 'src/**'
       - 'requirements.txt'
       - 'requirements-prod.txt'
-      - 'Dockerfile'
+      - 'deployment/Dockerfile'
       - 'railway.json'
-      - 'README.md'
       - '.github/workflows/docker-build.yml'
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # Increased timeout for PyTorch CPU build
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -29,18 +28,18 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Full history
-    
+        fetch-depth: 0
+
     - name: Verify build environment
       run: |
         echo "✅ Build environment ready"
-        echo "📦 Model will be downloaded from HuggingFace Hub at runtime"
-        echo "🚀 Fast build - no large files to copy"
+        echo "📦 PyTorch CPU-only, slim image (~1.5GB)"
+        echo "🚀 Fast build for Railway Free Plan"
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Log in to Container Registry
+    - name: Log in to GitHub Container Registry
       uses: docker/login-action@v3
       with:
         registry: ${{ env.REGISTRY }}
@@ -72,14 +71,27 @@ jobs:
         build-args: |
           BUILDKIT_INLINE_CACHE=1
         outputs: type=registry
-        # Add memory limits for build process
         shm-size: 2gb
-          
+
+    - name: Install Railway CLI
+      run: |
+        curl -fsSL https://railway.app/install.sh | sh
+        railway --version
+
+    - name: Login to Railway
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      run: |
+        railway login --apiKey $RAILWAY_TOKEN
+
+    - name: Deploy to Railway
+      run: |
+        railway up --detach
+
     - name: Build summary
       run: |
-        echo "## 🚀 Docker Image Built Successfully" >> $GITHUB_STEP_SUMMARY
+        echo "## 🚀 Docker Image Built & Deployed Successfully" >> $GITHUB_STEP_SUMMARY
         echo "- **Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
-        echo "- **Features**: AI-enabled with PhoBERT model" >> $GITHUB_STEP_SUMMARY
-        echo "- **Model**: phobert_sms_classifier.pkl (518MB via Git LFS)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Features**: AI-enabled PhoBERT SMS classifier" >> $GITHUB_STEP_SUMMARY
+        echo "- **Deployment**: Railway Free Plan" >> $GITHUB_STEP_SUMMARY
         echo "- **Build time**: ~10-15 minutes" >> $GITHUB_STEP_SUMMARY
-        echo "- **Ready for**: Production deployment" >> $GITHUB_STEP_SUMMARY
