@@ -1,29 +1,29 @@
-# AI/ML - Local / Development
-torch>=2.5.0
-torchvision>=0.20.0
-torchaudio>=2.6.0  
+torch==2.8.0+cpu
+torchvision==0.23.0+cpu
+torchaudio==2.8.0+cpu
+--extra-index-url https://download.pytorch.org/whl/cpu
 
 # Core web framework
 fastapi==0.115.13
-uvicorn[standard]>=0.32.0
+uvicorn[standard]==0.37.0
 
 # Database
 sqlalchemy==2.0.25
-psycopg2-binary>=2.9.9
+psycopg2-binary==2.9.10
 alembic==1.12.1
 
 # Data validation
-pydantic>=2.5.0
+pydantic==2.11.9
 
 # System monitoring
-psutil>=5.9.0
+psutil==7.1.0
 
 # NLP and ML utilities
-transformers>=4.38.0
-tokenizers>=0.15.2
-scikit-learn>=1.7.2   
-numpy>=1.26.4
+transformers==4.56.2
+tokenizers==0.22.1
+scikit-learn==1.7.2
+numpy==2.3.3
 
 # Additional utilities
-requests>=2.31.0
-huggingface-hub>=0.20.0
+requests==2.32.5
+huggingface-hub==0.35.1
