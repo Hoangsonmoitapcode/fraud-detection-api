@@ -1,4 +1,4 @@
-name: Build and Deploy Docker Image to Railway
+name: Build Docker Image
 
 on:
   push:
@@ -10,38 +10,17 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-test-deploy:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     permissions:
       contents: read
       packages: write
 
     steps:
-      # --- CI ---
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install dependencies for testing
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt || true
-          pip install pytest || true
-
-      - name: Run tests
-        run: |
-          if pytest; then
-            echo "✅ Tests passed"
-          else
-            echo "⚠️ No tests found or failed, skipping..."
-          fi
-
-      # --- Build Docker Image ---
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -72,68 +51,18 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          no-cache: false
           build-args: |
             HF_TOKEN=${{ secrets.HF_TOKEN }}
 
-      # --- Railway Deployment (FIXED) ---
-      - name: Install Railway CLI
-        run: |
-          curl -fsSL https://railway.app/install.sh | sh
-          echo "$HOME/.railway/bin" >> $GITHUB_PATH
-
-      - name: Verify Railway CLI installation
-        run: |
-          railway --version
-
-      - name: Deploy to Railway
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
-          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
-        run: |
-          echo "🚀 Deploying to Railway..."
-          
-          # Set Railway token via environment variable (new method)
-          export RAILWAY_TOKEN="${RAILWAY_TOKEN}"
-          
-          # Link to project using environment variable
-          railway link --project $RAILWAY_PROJECT_ID
-          
-          # Deploy to specific service
-          railway up --service $RAILWAY_SERVICE_ID --detach
-          
-          echo "✅ Railway deployment completed successfully!"
-
-      # --- Post-deployment verification ---
-      - name: Get deployment status
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
-        run: |
-          echo "📊 Getting deployment status..."
-          export RAILWAY_TOKEN="${RAILWAY_TOKEN}"
-          railway status --service $RAILWAY_SERVICE_ID || echo "Status command not available"
-
-      # --- Summary ---
       - name: Build summary
         run: |
-          echo "## ✅ CI/CD Pipeline Completed Successfully" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔨 Build Information" >> $GITHUB_STEP_SUMMARY
-          echo "- **Repository:** \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Docker Build Completed Successfully" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🐳 Docker Image" >> $GITHUB_STEP_SUMMARY
           echo "- **Registry:** \`${{ env.REGISTRY }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🚂 Railway Deployment" >> $GITHUB_STEP_SUMMARY
-          echo "- **Project ID:** \`${{ secrets.RAILWAY_PROJECT_ID }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Service ID:** \`${{ secrets.RAILWAY_SERVICE_ID }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status:** ✅ Deployed successfully" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔗 Quick Links" >> $GITHUB_STEP_SUMMARY
-          echo "- [Railway Dashboard](https://railway.app/project/${{ secrets.RAILWAY_PROJECT_ID }})" >> $GITHUB_STEP_SUMMARY
-          echo "- [Service Logs](https://railway.app/project/${{ secrets.RAILWAY_PROJECT_ID }}/service/${{ secrets.RAILWAY_SERVICE_ID }})" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Go to Railway Dashboard" >> $GITHUB_STEP_SUMMARY  
+          echo "2. Update service to use new image" >> $GITHUB_STEP_SUMMARY
+          echo "3. Deploy manually" >> $GITHUB_STEP_SUMMARY
