@@ -34,7 +34,7 @@ RUN useradd --create-home --shell /bin/bash app
 
 WORKDIR /app
 
-# Sao chép site-packages từ builder sang (không cần venv)
+# chép site-packages từ builder sang (không cần venv)
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
