@@ -85,8 +85,7 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          railway link --project ${{ secrets.RAILWAY_PROJECT_ID }} --service ${{ secrets.RAILWAY_SERVICE_ID }}
-          railway up --detach --service ${{ secrets.RAILWAY_SERVICE_ID }}
+          railway up --service ${{ secrets.RAILWAY_SERVICE_ID }} --yes --detach
 
       # --- Summary ---
       - name: Build summary
