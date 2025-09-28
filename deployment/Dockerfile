@@ -23,27 +23,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --no-cache-dir \
     --disable-pip-version-check \
     --no-compile \
-    -r requirements.txt \
-    --extra-index-url https://download.pytorch.org/whl/cpu
-
-# Pre-download your custom model (requires HF token)
-ARG HF_TOKEN
-RUN if [ -n "$HF_TOKEN" ]; then \
-    python -c "\
-    import os; \
-    from transformers import AutoTokenizer, AutoModel; \
-    from huggingface_hub import login; \
-    login(token='$HF_TOKEN'); \
-    os.makedirs('/opt/venv/model_cache', exist_ok=True); \
-    os.environ['TRANSFORMERS_CACHE'] = '/opt/venv/model_cache'; \
-    print('Downloading model...'); \
-    tokenizer = AutoTokenizer.from_pretrained('hoangson2006/vietnamese-fraud-detection', cache_dir='/opt/venv/model_cache'); \
-    model = AutoModel.from_pretrained('hoangson2006/vietnamese-fraud-detection', cache_dir='/opt/venv/model_cache'); \
-    print('Model cached successfully!'); \
-    "; \
-    else \
-    echo "HF_TOKEN not provided - model will be downloaded at runtime"; \
-    fi
+    -r requirements.txt
 
 # Clean up unnecessary files
 RUN find /opt/venv -name "*.pyc" -delete && \
@@ -78,10 +58,7 @@ ENV VIRTUAL_ENV=/opt/venv \
     PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    TOKENIZERS_PARALLELISM=false \
-    TRANSFORMERS_CACHE=/opt/venv/model_cache \
-    HF_HOME=/opt/venv/model_cache \
-    PYTORCH_DISABLE_WARNINGS=1
+    HF_TOKEN=${HF_TOKEN}
 
 # Switch to non-root user
 USER app

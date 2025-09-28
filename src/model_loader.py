@@ -1,10 +1,9 @@
 import os
 import logging
 import time
-import torch
+import pickle
 from typing import Dict, List, Union, Optional, Any
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig
-from huggingface_hub import login, HfApi
+from huggingface_hub import hf_hub_download, login
 import numpy as np
 
 # Cấu hình logging
@@ -13,31 +12,27 @@ logger = logging.getLogger(__name__)
 
 class FraudModelLoader:
     """
-    Vietnamese Fraud Detection Model Loader for PhoBERT
-    Tối ưu cho Railway deployment với memory-efficient loading
+    Vietnamese Fraud Detection Model Loader for Pickle Model
+    Load model từ Hugging Face Hub (.pkl file)
     """
     
     def __init__(self, model_name: str = "hoangson2006/vietnamese-fraud-detection"):
         self.model_name = model_name
         self.model = None
-        self.tokenizer = None
-        self.config = None
         self.is_loaded = False
         self.load_attempts = 0
         self.last_load_time = None
         self.load_error = None
         
-        # Cache directories
-        self.cache_dir = os.getenv('TRANSFORMERS_CACHE', '/opt/venv/model_cache')
+        # Model file info
+        self.model_filename = "phobert_complete_with_dependencies.pkl"
+        self.model_path = None
+        
+        # HF Token
         self.hf_token = os.getenv('HF_TOKEN')
         
-        # Model configuration
-        self.max_length = 256  # Optimal for SMS content
-        self.device = torch.device('cpu')  # Force CPU for Railway
-        
         logger.info(f"🤖 Initialized FraudModelLoader for {self.model_name}")
-        logger.info(f"📁 Cache directory: {self.cache_dir}")
-        logger.info(f"💻 Device: {self.device}")
+        logger.info(f"📄 Model file: {self.model_filename}")
 
     def _login_to_huggingface(self) -> bool:
         """Login to Hugging Face if token is available"""
@@ -53,71 +48,63 @@ class FraudModelLoader:
             logger.warning(f"⚠️ HF login failed: {e}")
             return False
 
-    def _check_model_exists(self) -> bool:
-        """Check if model exists on Hugging Face Hub"""
+    def _download_model_file(self) -> str:
+        """Download model file from Hugging Face Hub"""
         try:
-            api = HfApi()
-            model_info = api.model_info(self.model_name)
-            logger.info(f"✅ Model found on Hub: {model_info.modelId}")
-            return True
-        except Exception as e:
-            logger.error(f"❌ Model not found on Hub: {e}")
-            return False
-
-    def _load_model_components(self):
-        """Load tokenizer, config, and model with memory optimization"""
-        start_time = time.time()
-        
-        try:
+            logger.info(f"📥 Downloading {self.model_filename} from {self.model_name}...")
+            
             # Login first
             self._login_to_huggingface()
             
-            # Check if model exists
-            if not self._check_model_exists():
-                raise Exception(f"Model {self.model_name} not found on Hugging Face Hub")
-            
-            logger.info("📥 Loading model components...")
-            
-            # Load config first (lightweight)
-            logger.info("📋 Loading model config...")
-            self.config = AutoConfig.from_pretrained(
-                self.model_name,
-                cache_dir=self.cache_dir,
-                token=self.hf_token
-            )
-            logger.info(f"✅ Config loaded: {self.config.num_labels} labels")
-            
-            # Load tokenizer (lightweight)
-            logger.info("🔤 Loading tokenizer...")
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_name,
-                cache_dir=self.cache_dir,
-                token=self.hf_token
-            )
-            logger.info("✅ Tokenizer loaded successfully")
-            
-            # Load model (heavyweight - optimize memory)
-            logger.info("🧠 Loading PhoBERT model...")
-            self.model = AutoModelForSequenceClassification.from_pretrained(
-                self.model_name,
-                cache_dir=self.cache_dir,
+            # Download model file
+            model_path = hf_hub_download(
+                repo_id=self.model_name,
+                filename=self.model_filename,
                 token=self.hf_token,
-                torch_dtype=torch.float32,  # Use float32 for CPU
-                low_cpu_mem_usage=True,     # Memory optimization
-                device_map='cpu'            # Force CPU
+                cache_dir=os.getenv('HF_HOME', '/tmp/hf_cache')
             )
             
-            # Move to CPU and set to eval mode
-            self.model.to(self.device)
-            self.model.eval()
+            logger.info(f"✅ Model downloaded to: {model_path}")
+            return model_path
             
-            # Disable gradients for inference (save memory)
-            for param in self.model.parameters():
-                param.requires_grad = False
-                
+        except Exception as e:
+            logger.error(f"❌ Failed to download model: {e}")
+            raise e
+
+    def _load_pickle_model(self, model_path: str):
+        """Load pickle model from file"""
+        try:
+            logger.info(f"🔄 Loading pickle model from {model_path}...")
+            
+            with open(model_path, 'rb') as f:
+                self.model = pickle.load(f)
+            
+            logger.info("✅ Pickle model loaded successfully")
+            
+            # Estimate model size
+            model_size = os.path.getsize(model_path) / (1024 * 1024)  # MB
+            logger.info(f"📊 Model size: {model_size:.1f}MB")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to load pickle model: {e}")
+            raise e
+
+    def load_model(self):
+        """Load model with error handling and retry logic"""
+        self.load_attempts += 1
+        start_time = time.time()
+        
+        try:
+            logger.info(f"🚀 Loading model attempt #{self.load_attempts}")
+            
+            # Download model file
+            self.model_path = self._download_model_file()
+            
+            # Load pickle model
+            self._load_pickle_model(self.model_path)
+            
             load_time = time.time() - start_time
-            logger.info(f"✅ Model loaded successfully in {load_time:.2f}s")
-            logger.info(f"📊 Model size: ~{self._estimate_model_size():.1f}MB")
+            logger.info(f"🎉 Model loading completed successfully in {load_time:.2f}s!")
             
             self.is_loaded = True
             self.last_load_time = time.time()
@@ -126,43 +113,13 @@ class FraudModelLoader:
         except Exception as e:
             load_time = time.time() - start_time
             self.load_error = str(e)
-            logger.error(f"❌ Model loading failed after {load_time:.2f}s: {e}")
-            raise e
-
-    def _estimate_model_size(self) -> float:
-        """Estimate model size in MB"""
-        if not self.model:
-            return 0.0
-        
-        param_size = 0
-        buffer_size = 0
-        
-        for param in self.model.parameters():
-            param_size += param.nelement() * param.element_size()
-        
-        for buffer in self.model.buffers():
-            buffer_size += buffer.nelement() * buffer.element_size()
-        
-        size_mb = (param_size + buffer_size) / 1024 / 1024
-        return size_mb
-
-    def load_model(self):
-        """Load model with error handling and retry logic"""
-        self.load_attempts += 1
-        
-        try:
-            logger.info(f"🚀 Loading model attempt #{self.load_attempts}")
-            self._load_model_components()
-            logger.info("🎉 Model loading completed successfully!")
-            
-        except Exception as e:
-            logger.error(f"💥 Model loading failed: {e}")
+            logger.error(f"💥 Model loading failed after {load_time:.2f}s: {e}")
             self.is_loaded = False
             raise e
 
     def predict(self, texts: List[str]) -> List[str]:
         """
-        Predict spam/ham for SMS texts
+        Predict spam/ham for SMS texts using pickle model
         Args:
             texts: List of SMS content strings
         Returns:
@@ -178,29 +135,26 @@ class FraudModelLoader:
         try:
             logger.info(f"🔍 Predicting {len(texts)} SMS messages...")
             
-            # Tokenize input texts
-            inputs = self.tokenizer(
-                texts,
-                truncation=True,
-                padding=True,
-                max_length=self.max_length,
-                return_tensors="pt"
-            )
+            # Use the loaded pickle model for prediction
+            # Model expects individual strings or array-like input
+            predictions = self.model.predict(texts)
             
-            # Move inputs to device
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            
-            # Inference with no gradients (memory efficient)
-            with torch.no_grad():
-                outputs = self.model(**inputs)
-                predictions = torch.nn.functional.softmax(outputs.logits, dim=-1)
-                predicted_classes = torch.argmax(predictions, dim=-1)
-            
-            # Convert to labels
+            # Convert predictions to string labels
             results = []
-            for pred in predicted_classes.cpu().numpy():
-                # Assuming: 0 = ham, 1 = spam (adjust based on your model)
-                label = "spam" if pred == 1 else "ham"
+            for pred in predictions:
+                # Handle different prediction formats
+                if isinstance(pred, (int, np.integer)):
+                    # Binary classification: 0=ham, 1=spam
+                    label = "spam" if pred == 1 else "ham"
+                elif isinstance(pred, str):
+                    # Direct string prediction
+                    label = pred.lower()
+                else:
+                    # Convert to string and normalize
+                    label = str(pred).lower()
+                    if label not in ['spam', 'ham']:
+                        label = "spam" if label in ['1', 'true'] else "ham"
+                
                 results.append(label)
             
             logger.info(f"✅ Prediction completed: {results}")
@@ -226,34 +180,43 @@ class FraudModelLoader:
             }
         
         try:
-            # Tokenize input
-            inputs = self.tokenizer(
-                text,
-                truncation=True,
-                padding=True,
-                max_length=self.max_length,
-                return_tensors="pt"
-            )
-            
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            
-            # Inference
-            with torch.no_grad():
-                outputs = self.model(**inputs)
-                probabilities = torch.nn.functional.softmax(outputs.logits, dim=-1)
-                confidence, predicted_class = torch.max(probabilities, dim=-1)
-            
-            # Convert to label
-            pred_class = predicted_class.item()
-            confidence_score = confidence.item()
-            
-            # Assuming: 0 = ham, 1 = spam
-            prediction = "spam" if pred_class == 1 else "ham"
+            # Use model for single prediction
+            if hasattr(self.model, 'predict_proba'):
+                # If model supports probability prediction (Scikit-learn models usually do)
+                probabilities = self.model.predict_proba([text])[0]
+                predicted_class = np.argmax(probabilities)
+                confidence = float(np.max(probabilities))
+                
+                # For binary classification, class 1 is usually spam
+                prediction_label = "spam" if predicted_class == 1 else "ham"
+                
+            else:
+                # Fallback to regular prediction
+                prediction = self.model.predict([text])[0]
+                
+                # Handle different prediction formats
+                if isinstance(prediction, (int, np.integer)):
+                    predicted_class = prediction
+                    prediction_label = "spam" if prediction == 1 else "ham"
+                elif isinstance(prediction, str):
+                    prediction_label = prediction.lower()
+                    predicted_class = 1 if prediction_label == "spam" else 0
+                else:
+                    # Convert and normalize
+                    prediction_str = str(prediction).lower()
+                    if prediction_str in ['1', 'true', 'spam']:
+                        prediction_label = "spam"
+                        predicted_class = 1
+                    else:
+                        prediction_label = "ham"
+                        predicted_class = 0
+                
+                confidence = 0.85  # Default confidence when no probability available
             
             return {
-                "prediction": prediction,
-                "confidence": confidence_score,
-                "class_id": pred_class
+                "prediction": prediction_label,
+                "confidence": confidence,
+                "class_id": int(predicted_class)
             }
             
         except Exception as e:
@@ -264,23 +227,28 @@ class FraudModelLoader:
                 "error": str(e)
             }
 
+    def _estimate_model_size(self) -> float:
+        """Estimate model size in MB"""
+        if not self.model_path or not os.path.exists(self.model_path):
+            return 0.0
+        
+        size_mb = os.path.getsize(self.model_path) / (1024 * 1024)
+        return size_mb
+
     def get_model_info(self) -> Dict[str, Any]:
         """Get comprehensive model information"""
         return {
             "model_name": self.model_name,
+            "model_filename": self.model_filename,
+            "model_type": "pickle",
             "is_loaded": self.is_loaded,
             "load_attempts": self.load_attempts,
             "last_load_time": self.last_load_time,
             "load_error": self.load_error,
-            "cache_directory": self.cache_dir,
-            "device": str(self.device),
-            "max_length": self.max_length,
-            "estimated_size_mb": self._estimate_model_size() if self.is_loaded else 0,
-            "num_labels": self.config.num_labels if self.config else "unknown",
-            "tokenizer_vocab_size": len(self.tokenizer) if self.tokenizer else 0,
-            "memory_optimized": True,
-            "torch_dtype": "float32",
-            "hf_token_available": bool(self.hf_token)
+            "model_path": self.model_path,
+            "estimated_size_mb": self._estimate_model_size(),
+            "hf_token_available": bool(self.hf_token),
+            "model_object_type": str(type(self.model)) if self.model else "None"
         }
 
     def health_check(self) -> Dict[str, Union[str, bool]]:
@@ -325,20 +293,9 @@ class FraudModelLoader:
         if self.model:
             del self.model
             self.model = None
-            
-        if self.tokenizer:
-            del self.tokenizer
-            self.tokenizer = None
-            
-        if self.config:
-            del self.config
-            self.config = None
-        
-        # Clear PyTorch cache
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
         
         self.is_loaded = False
+        self.model_path = None
         logger.info("✅ Model unloaded successfully")
 
 
