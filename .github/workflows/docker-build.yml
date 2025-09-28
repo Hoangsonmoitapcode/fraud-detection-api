@@ -82,11 +82,10 @@ jobs:
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       run: |
-        # Link to a specific project and service for reliability
+        # Explicitly link to the project and service to avoid ambiguity
         railway link ${{ secrets.RAILWAY_PROJECT_ID }} ${{ secrets.RAILWAY_SERVICE_ID }}
         
-        # Deploy the linked service
-        # The --service flag ensures we deploy to the correct service
+        # Deploy the linked service, specifying the service ID again for safety
         railway up --detach --service ${{ secrets.RAILWAY_SERVICE_ID }}
 
     - name: Build summary
