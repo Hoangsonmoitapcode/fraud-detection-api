@@ -73,11 +73,10 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           no-cache: false
-          shm-size: 2gb  # Required for PhoBERT (518MB) + pre-cached model in image
           build-args: |
             HF_TOKEN=${{ secrets.HF_TOKEN }}
 
-      # --- Railway Deployment ---
+      # --- Railway Deployment (FIXED) ---
       - name: Install Railway CLI
         run: |
           curl -fsSL https://railway.app/install.sh | sh
@@ -87,23 +86,22 @@ jobs:
         run: |
           railway --version
 
-      - name: Login and deploy to Railway
+      - name: Deploy to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
         run: |
-          # Login với project token
-          echo "🔐 Logging into Railway..."
-          railway login --token $RAILWAY_TOKEN
+          echo "🚀 Deploying to Railway..."
           
-          # Link project
-          echo "🔗 Linking to Railway project..."
+          # Set Railway token via environment variable (new method)
+          export RAILWAY_TOKEN="${RAILWAY_TOKEN}"
+          
+          # Link to project using environment variable
           railway link --project $RAILWAY_PROJECT_ID
           
           # Deploy to specific service
-          echo "🚀 Deploying to Railway service..."
-          railway up --service $RAILWAY_SERVICE_ID --yes --detach
+          railway up --service $RAILWAY_SERVICE_ID --detach
           
           echo "✅ Railway deployment completed successfully!"
 
@@ -114,6 +112,7 @@ jobs:
           RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
         run: |
           echo "📊 Getting deployment status..."
+          export RAILWAY_TOKEN="${RAILWAY_TOKEN}"
           railway status --service $RAILWAY_SERVICE_ID || echo "Status command not available"
 
       # --- Summary ---
