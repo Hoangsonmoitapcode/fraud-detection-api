@@ -25,12 +25,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --no-cache-dir \
     --disable-pip-version-check \
     --no-compile \
-    torch==2.8.0+cpu \
-    torchvision==0.23.0+cpu \
-    torchaudio==2.8.0+cpu \
-    --index-url https://download.pytorch.org/whl/cpu \
     -r requirements.txt
 
+    
 # Clean up unnecessary files
 RUN find /opt/venv -name "*.pyc" -delete && \
     find /opt/venv -name "__pycache__" -type d -exec rm -rf {} + && \

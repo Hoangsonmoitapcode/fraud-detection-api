@@ -1,3 +1,8 @@
+torch==2.8.0+cpu
+torchvision==0.23.0+cpu
+torchaudio==2.8.0+cpu
+extra-index-url=https://download.pytorch.org/whl/cpu
+
 # Core web framework
 fastapi==0.115.13
 uvicorn[standard]==0.37.0
@@ -9,7 +14,7 @@ alembic==1.12.1
 
 # Data validation
 pydantic==2.11.9
-datasette==0.66.1
+datasets==2.18.0
 
 # System monitoring
 psutil==7.1.0

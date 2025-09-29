@@ -9,7 +9,7 @@ alembic==1.12.1
 
 # Data validation
 pydantic==2.11.9
-
+datasets==2.18.0
 # System monitoring
 psutil==7.1.0
 
