@@ -1,32 +1,37 @@
 {
   "build": {
     "dockerfilePath": "deployment/Dockerfile",
-    "buildCommand": "echo 'Building with Git LFS support...'",
+    "buildCommand": "echo 'Building fraud detection API...'",
     "watchPatterns": [
       "src/**",
-      "requirements-prod.txt",
+      "requirements_prod.txt",
       "deployment/Dockerfile"
     ]
   },
   "deploy": {
-    "startCommand": "uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 1 --timeout-keep-alive 30",
+    "startCommand": "uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 1 --timeout-keep-alive 5",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3,
-    "sleepApplication": false,
-    "healthcheckPath": null,
-    "healthcheckTimeout": null,
-    "healthcheckInterval": null,
-    "healthcheckRetries": null
+    "sleepApplication": true,
+    "healthcheckPath": "/ping",
+    "healthcheckTimeout": 300,
+    "healthcheckInterval": 30,
+    "healthcheckRetries": 3
   },
   "environments": {
     "production": {
       "variables": {
         "PORT": "8000",
         "RAILWAY_ENVIRONMENT": "production",
-        "MODEL_PATH": "/app/phobert_sms_classifier.pkl",
+        "PYTHONPATH": "/app",
         "PYTHONUNBUFFERED": "1",
         "PYTHONDONTWRITEBYTECODE": "1",
-        "TOKENIZERS_PARALLELISM": "false"
+        "OMP_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "TOKENIZERS_PARALLELISM": "false",
+        "HF_HOME": "/tmp/hf_cache",
+        "TRANSFORMERS_CACHE": "/tmp/transformers_cache",
+        "TORCH_HOME": "/tmp/torch_cache"
       }
     }
   }

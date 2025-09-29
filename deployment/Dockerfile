@@ -4,6 +4,8 @@ FROM python:3.12-slim AS builder
 # Install build essentials (minimal)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    gcc \
+    g++ \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -19,10 +21,14 @@ RUN pip install --no-cache-dir --upgrade pip wheel
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install dependencies with optimization flags
+# Install dependencies with CPU-only PyTorch for Railway free tier
 RUN pip install --no-cache-dir \
     --disable-pip-version-check \
     --no-compile \
+    torch==2.8.0+cpu \
+    torchvision==0.23.0+cpu \
+    torchaudio==2.8.0+cpu \
+    --index-url https://download.pytorch.org/whl/cpu \
     -r requirements.txt
 
 # Clean up unnecessary files
@@ -52,22 +58,27 @@ COPY --from=builder /opt/venv /opt/venv
 COPY --chown=app:app src/ ./src/
 COPY --chown=app:app config/ ./config/
 
-# Set optimized environment variables
+# Set optimized environment variables for Railway free tier
 ENV VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:$PATH" \
     PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    HF_TOKEN=${HF_TOKEN}
+    HF_TOKEN=${HF_TOKEN} \
+    HF_HOME=/tmp/hf_cache \
+    TRANSFORMERS_CACHE=/tmp/transformers_cache \
+    TORCH_HOME='/tmp/torch_cache' \
+    OMP_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1
 
 # Switch to non-root user
 USER app
 
 # Minimal health check
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=2 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health', timeout=5)" || exit 1
+    CMD python -c "import requests; requests.get('http://localhost:8000/ping', timeout=5)" || exit 1
 
 EXPOSE 8000
 
 # Optimized startup command for Railway free tier
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--access-log"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--access-log", "--timeout-keep-alive", "5"]

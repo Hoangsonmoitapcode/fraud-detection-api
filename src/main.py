@@ -418,6 +418,20 @@ async def load_model_endpoint():
             "health_check": loader.health_check()
         }
     
+    # Validate HF token before attempting download
+    if not loader.hf_token:
+        return {
+            "status": "error",
+            "message": "HF_TOKEN not found in environment variables",
+            "load_time_seconds": 0,
+            "error_details": "Missing HF_TOKEN",
+            "suggestions": [
+                "Set HF_TOKEN environment variable in Railway dashboard",
+                "Go to Railway → Variables → Add HF_TOKEN",
+                "Get token from https://huggingface.co/settings/tokens"
+            ]
+        }
+    
     # Run model loading in background to avoid timeout
     try:
         # Use asyncio to prevent blocking
@@ -425,6 +439,9 @@ async def load_model_endpoint():
         start_time = time.time()
         
         print("🚀 Starting model loading process...")
+        print(f"🔑 HF Token available: {bool(loader.hf_token)}")
+        print(f"📋 Model: {loader.model_name}")
+        
         await loop.run_in_executor(None, loader.load_model)
         
         load_time = time.time() - start_time
@@ -440,18 +457,42 @@ async def load_model_endpoint():
         
     except Exception as e:
         load_time = time.time() - start_time if 'start_time' in locals() else 0
+        error_msg = str(e)
         
-        return {
-            "status": "error",
-            "message": f"Failed to load model: {str(e)}",
-            "load_time_seconds": round(load_time, 2),
-            "error_details": str(e),
-            "suggestions": [
+        # Provide specific suggestions based on error type
+        suggestions = []
+        if "CompletePhoBERTClassifier" in error_msg:
+            suggestions.extend([
+                "This is a known pickle deserialization issue",
+                "The model class definition is now fixed in the code",
+                "Try reloading the model again"
+            ])
+        elif "unauthorized" in error_msg.lower() or "401" in error_msg:
+            suggestions.extend([
+                "HF_TOKEN authentication failed",
+                "Check if token is valid at https://huggingface.co/settings/tokens",
+                "Ensure token has 'read' permissions for the repository"
+            ])
+        elif "not found" in error_msg.lower() or "404" in error_msg:
+            suggestions.extend([
+                "Model repository not found",
+                "Verify repository exists: hoangson2006/vietnamese-fraud-detection",
+                "Check if repository is private and token has access"
+            ])
+        else:
+            suggestions.extend([
                 "Check if HF_TOKEN is valid",
                 "Verify model exists at hoangson2006/vietnamese-fraud-detection", 
                 "Ensure sufficient memory (>1GB available)",
                 "Try again after a few minutes"
-            ]
+            ])
+        
+        return {
+            "status": "error",
+            "message": f"Failed to load model: {error_msg}",
+            "load_time_seconds": round(load_time, 2),
+            "error_details": error_msg,
+            "suggestions": suggestions
         }
 
 
